@@ -1,0 +1,124 @@
+{
+  "name": "bihu-code-snippets",
+  "displayName": "Bihu FE Tools",
+  "description": "Code Snippets and useful tools for bihu FE team in JS/TS/SCSS.",
+  "version": "0.2.2",
+  "publisher": "bihu",
+  "icon": "images/logo.png",
+  "engines": {
+    "vscode": "^1.76.0"
+  },
+  "categories": [
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "React",
+    "SCSS"
+  ],
+  "repository": {
+    "url": "https://github.com/heruns/bihu-fe-tools.git"
+  },
+  "activationEvents": [
+    "onLanguage:scss",
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "snippets": [
+      {
+        "language": "javascript",
+        "path": "./snippets/snippets.code-snippets"
+      },
+      {
+        "language": "javascriptreact",
+        "path": "./snippets/snippets.code-snippets"
+      },
+      {
+        "language": "typescript",
+        "path": "./snippets/snippets.code-snippets"
+      },
+      {
+        "language": "typescriptreact",
+        "path": "./snippets/snippets.code-snippets"
+      },
+      {
+        "language": "scss",
+        "path": "./snippets/scss.code-snippets"
+      }
+    ],
+    "commands": [
+      {
+        "command": "bihu-code-snippets.addPx2vw",
+        "title": "为 px 值添加 px2vw() 调用"
+      },
+      {
+        "command": "bihu-code-snippets.focusPx2vw",
+        "title": "将光标移动到 px2vw() 的括号中"
+      },
+      {
+        "command": "bihu-code-snippets.reactUseState",
+        "title": "使用 React 的 useState"
+      },
+      {
+        "command": "bihu-code-snippets.reactUseEffect",
+        "title": "使用 React 的 useEffect"
+      },
+      {
+        "command": "bihu-code-snippets.componentRename",
+        "title": "组件重命名（替换文件名和文件内容）"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "bihu-code-snippets.componentRename",
+          "group": "7_modification@100"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Bihu FE Tools",
+      "properties": {
+        "bihuFeTools.enablePx2vwInAnySelector": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在任何选择器中都出现 px2vw() 的代码补全提示，取消勾选后只会在 :global(.mobile) 或 .isMobile 中提示"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "npm run package",
+    "login": "vsce login bihu",
+    "publish": "vsce package && vsce publish",
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.76.0",
+    "@types/glob": "^8.1.0",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "16.x",
+    "@typescript-eslint/eslint-plugin": "^5.53.0",
+    "@typescript-eslint/parser": "^5.53.0",
+    "eslint": "^8.34.0",
+    "glob": "^8.1.0",
+    "mocha": "^10.2.0",
+    "typescript": "^4.9.5",
+    "ts-loader": "^9.4.2",
+    "webpack": "^5.75.0",
+    "webpack-cli": "^5.0.1",
+    "@vscode/test-electron": "^2.2.3"
+  }
+}

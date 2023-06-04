@@ -1,0 +1,96 @@
+{
+  "ts note": {
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+    "prefix": "/** */ -bh",
+    "body": [
+      "/** $1 */",
+    ],
+    "description": "/** 注释 */",
+  },
+  "className module": {
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+    "prefix": "className module -bh",
+    "body": [
+      "className={styles.${1:className}}",
+    ],
+    "description": "className={styles.className}"
+  },
+  "constant map": {
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+    "prefix": "constant map -bh",
+    "body": [
+      // "import { IDType, getIdMap } from './utils'",
+      // "",
+      "/** ${2:状态} */",
+      "export const ${1:STATUS} = {",
+      "  /** ${4:已激活} */",
+      "  ${3:Active}: {",
+      "    id: ${5:0},",
+      "    name: '${4:已激活}'",
+      "  },",
+      "  ${0}",
+      "} as const",
+      "",
+      "// ${2:} id 映射 name",
+      "export const MESSAGE_ID_MAP = getIdMap(${1:STATUS})",
+      // "",
+      // "export type ${1:STATUS}_ID = IDType<typeof ${1:STATUS}>",
+    ],
+    "description": "常量MAP"
+  },
+  "constant map object": {
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+    "prefix": "constant IdNameObj -bh",
+    "body": [
+      " /** ${1:注释} */",
+      " ${2:OBJECT}: {",
+      "   id: ${3:0},",
+      "   name: '${1:string}'",
+      " },",
+    ],
+    "description": "常量id对象"
+  },
+  // "useState Snippets": {
+  //   "scope": "typescript,typescriptreact,javascript,javascriptreact",
+  //   "prefix": "useState  -bh",
+  //   "body": [
+  //     "const [${1:}, set${1/(.*)/${1:/capitalize}/}] = useState(${2:})",
+  //   ],
+  //   "description": "useState 按下tab,set转大写123"
+  // },
+  "modal": {
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+    "prefix": "antd modal init -bh",
+    "body": [
+      "import React from 'react'",
+      "import { Modal } from 'antd'",
+      "import styles from './${2:second}-modal.module.scss'",
+      "",
+      "export interface ${1/(.*)/${1:loading/capitalize}/}ModalProps extends React.ComponentProps<typeof Modal> {",
+      "}",
+      "",
+      "const ${1:First}Modal: React.FC<${1:First}ModalProps> = props => {",
+      "  const { ...modalProps } = props",
+      "  return (",
+      "    <Modal",
+      "      className={styles.${1:First}Modal}",
+      "      {...modalProps}",
+      "    >",
+      "        ",
+      "    </Modal>",
+      "  )",
+      "}",
+      "",
+      "export default ${1/(.*)/${1:First/capitalize}/}Modal"
+    ],
+    "description": "modal二次封装"
+  },
+  "img": {
+    "scope": "typescript,typescriptreact,javascript,javascriptreact",
+    "prefix": "img -bh",
+    "body": [
+      "<img src={${1:require('@imgs')}} alt=\"${2}\" />",
+    ],
+    "description": "img"
+  },
+}

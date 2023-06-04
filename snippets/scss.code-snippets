@@ -1,0 +1,18 @@
+{
+  "global": {
+    "scope": "scss",
+    "prefix": ":global -bh",
+    "body": [
+      ":global {\n\t.${1:className} {\n\t\t${2}\n\t}\n}",
+    ],
+    "description": ":global(.mobile)"
+  },
+  "mobile": {
+    "scope": "scss",
+    "prefix": ":global(.mobile) -bh",
+    "body": [
+      ":global(.mobile) {\n\t${1}\n}",
+    ],
+    "description": ":global(.mobile)"
+  },
+}
