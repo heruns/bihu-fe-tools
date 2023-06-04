@@ -4,17 +4,17 @@
 
 - SCSS 中 `px2vw` 自定义函数的支持
   - 对 SCSS 代码选中区域内的 px 值统一加上 px2vw() 调用
-  ![px2vw-select-and-replace](./demo/px2vw-select-and-replace.gif)
+  ![px2vw-select-and-replace](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/px2vw-select-and-replace.gif)
   - 在 SCSS 值中输入数字值或 `px2vw` 开头的值时智能提示
-  ![px2vw-intellisense](./demo/px2vw-intellisense.gif)
+  ![px2vw-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/px2vw-intellisense.gif)
 - 组件重命名
   - 一键替换文件名和文件内容
-  ![component-rename](./demo/component-rename.gif)
+  ![component-rename](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/component-rename.gif)
 - 不仅生成代码片段，还会智能导入对应模块
   - `useState` 代码片段: `useState -bihu`
-  ![use-state-intellisense](./demo/use-state-intellisense.gif)
+  ![use-state-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/use-state-intellisense.gif)
   - `useEffect` 代码片段: `useEffect -bihu`
-  ![use-effect-intellisense](./demo/use-effect-intellisense.gif)
+  ![use-effect-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/use-effect-intellisense.gif)
 - React 和 TS 代码片段
   - JSDoc 风格注释代码片段: `/** */ -bh`
   - className module 代码片段: `className module -bh`
