@@ -2,7 +2,7 @@
   "name": "bihu-code-snippets",
   "displayName": "Bihu FE Tools",
   "description": "Code Snippets and useful tools for bihu FE team in JS/TS/SCSS.",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "publisher": "bihu",
   "icon": "images/logo.png",
   "engines": {
@@ -70,6 +70,10 @@
       {
         "command": "bihu-code-snippets.componentRename",
         "title": "组件重命名（替换文件名和文件内容）"
+      },
+      {
+        "command": "bihu-code-snippets.json2ts",
+        "title": "格式化或将 JSON 转为 TS 类型(json2ts)"
       }
     ],
     "menus": {
