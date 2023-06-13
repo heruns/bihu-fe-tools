@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import { activate as px2vwActivate, deactivate as px2vwDeactivate } from './modules/px2vw';
 import { activate as reactActivate, deactivate as reactDeactivate } from './modules/react';
 import { activate as componentRenameActivate, deactivate as componentRenameDeactivate } from './modules/component-rename';
+import { activate as json2tsActivate, deactivate as json2tsDeactivate } from './modules/json2ts';
 
 // 当您的扩展程序被激活时，将调用此方法
 // 您的扩展程序在第一次执行命令时被激活
@@ -13,6 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
   px2vwActivate(context);
   reactActivate(context);
   componentRenameActivate(context);
+  json2tsActivate(context);
 }
 
 // 当您的扩展程序被停用时，将调用此方法
@@ -20,4 +22,5 @@ export function deactivate() {
   px2vwDeactivate();
   reactDeactivate();
   componentRenameDeactivate();
+  json2tsDeactivate();
 }

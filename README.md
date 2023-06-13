@@ -2,6 +2,9 @@
 
 本插件主要与 JS/TS/React/SCSS 相关，包含以下功能：
 
+- 格式化或将 JSON 转为 TS 类型(json2ts)
+  - 不仅仅是 JSON，甚至有问题的格式都可以轻松转换为 TS 类型
+  ![json2ts](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/json2ts.gif)
 - SCSS 中 `px2vw` 自定义函数的支持
   - 对 SCSS 代码选中区域内的 px 值统一加上 px2vw() 调用
   ![px2vw-select-and-replace](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/px2vw-select-and-replace.gif)
@@ -30,6 +33,8 @@
 
 This plugin is mainly related to JS/TS/React/SCSS and includes the following features:
 
+- Format or convert JSON to TS types ()
+  - Not only JSON, even problematic formats can be easily converted to TS types.
 - Support for the `px2vw` custom function in SCSS
   - Automatically add `px2vw()` function call to all px values in the selected area of SCSS code
   - Smart prompt for numeric values or values starting with `px2vw` in `:global(.mobile)` or `.isMobile` selectors
