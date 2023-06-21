@@ -97,9 +97,6 @@ export function activate(context: vscode.ExtensionContext) {
     return false;
   };
 
-  const config = vscode.workspace.getConfiguration('bihuFeTools');
-  // 是否在任何选择器中都出现 px2vw() 的代码补全提示
-  const enablePx2vwInAnySelector = config.get('enablePx2vwInAnySelector');
   // 在 scss 值的位置输入数字时，出现 px2vw(数字值+px) 的提示，回车即可填入
   const completionProvider = vscode.languages.registerCompletionItemProvider(
     { language: 'scss' }, // 需要触发提示的文件类型
@@ -116,6 +113,9 @@ export function activate(context: vscode.ExtensionContext) {
         if (text === '0') {
           return [];
         }
+        const config = vscode.workspace.getConfiguration('bihuFeTools');
+        // 是否在任何选择器中都出现 px2vw() 的代码补全提示
+        const enablePx2vwInAnySelector = config.get('enablePx2vwInAnySelector');
         // 判断是否在 :global(.mobile) 或 .isMobile 里面，如果不是就不需要提示
         if (enablePx2vwInAnySelector || isInMobile(document, position)) {
           const textWithPx = text.replace(/p?x?/g, '') + 'px';
