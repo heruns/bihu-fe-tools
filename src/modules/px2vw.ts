@@ -150,7 +150,7 @@ export function activate(context: vscode.ExtensionContext) {
           completionItem.insertText = 'px2vw(px)';
           completionItem.command = {
             command: 'bihu-code-snippets.focusPx2vw',
-            title: 'focusPx2vw'
+            title: '将光标移动到 px2vw() 的括号中'
           };
           return [completionItem];
         }

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2023-06-25
+
+### Fixed
+
+- 修改 `bihuFeTools.enablePx2vwInAnySelector` 配置项后实时生效，生效的选择器改成 `.mobile` 和 `.isMobile`
+- 隐藏内部命令 `bihu-code-snippets.focusPx2vw`
+
 ## [0.3.0] - 2023-06-13
 
 ### Added
