@@ -56,10 +56,6 @@
         "title": "为 px 值添加 px2vw() 调用"
       },
       {
-        "command": "bihu-code-snippets.focusPx2vw",
-        "title": "将光标移动到 px2vw() 的括号中"
-      },
-      {
         "command": "bihu-code-snippets.reactUseState",
         "title": "使用 React 的 useState"
       },
@@ -90,7 +86,7 @@
         "bihuFeTools.enablePx2vwInAnySelector": {
           "type": "boolean",
           "default": true,
-          "description": "是否在任何选择器中都出现 px2vw() 的代码补全提示，取消勾选后只会在 :global(.mobile) 或 .isMobile 中提示"
+          "description": "是否在任何选择器中都出现 px2vw() 的代码补全提示，取消勾选后只会在 .mobile 或 .isMobile 中提示"
         }
       }
     }

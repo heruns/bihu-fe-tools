@@ -49,7 +49,7 @@ export function activate(context: vscode.ExtensionContext) {
         return false;
       }
       // console.log('textBetween', text);
-      return /(:global\(\.mobile\))|(\.isMobile)/.test(text);
+      return /(\.mobile)|(\.isMobile)/.test(text);
     };
     while (current) {
       let text = document.lineAt(current.line).text;
@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext) {
         const config = vscode.workspace.getConfiguration('bihuFeTools');
         // 是否在任何选择器中都出现 px2vw() 的代码补全提示
         const enablePx2vwInAnySelector = config.get('enablePx2vwInAnySelector');
-        // 判断是否在 :global(.mobile) 或 .isMobile 里面，如果不是就不需要提示
+        // 判断是否在 .mobile 或 .isMobile 里面，如果不是就不需要提示
         if (enablePx2vwInAnySelector || isInMobile(document, position)) {
           const textWithPx = text.replace(/p?x?/g, '') + 'px';
           const label = `px2vw(${textWithPx})`;
@@ -150,7 +150,7 @@ export function activate(context: vscode.ExtensionContext) {
           completionItem.insertText = 'px2vw(px)';
           completionItem.command = {
             command: 'bihu-code-snippets.focusPx2vw',
-            title: 'hello world11111'
+            title: 'focusPx2vw'
           };
           return [completionItem];
         }
