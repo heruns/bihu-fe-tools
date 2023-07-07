@@ -30,20 +30,23 @@ export const json2ts = (input: string) => {
   for (const line of lines) {
     const index = linesCopy.indexOf(line);
     const formatContent = (lineContent: string) => lineContent.replace(/[,;]?\s*$/, ';');
-    const commentMatched = line.match(/^(\s+)(.+:.+)(\/\/(.+))/);
-    if (commentMatched?.[4]) {
+    const matchedResult = line.match(/^(\s+)(.+:.+)(\/\/(.+))?/);
+    if (!matchedResult) {
+      // 有可能当前行内容仅为 {}[]
+    } else {
       // 匹配到带注释的内容行，如 `    "paymentMethod": 1, // 支付方式，1-POS、2-Cash`
       // 前面的空格
-      const spaces = commentMatched[1];
+      const spaces = matchedResult[1];
       // 内容
-      const content = formatContent(commentMatched[2]);
+      const content = formatContent(matchedResult[2]);
       // 注释
-      const comment = commentMatched[4].trim();
+      const comment = matchedResult[4]?.trim() || '';
       linesCopy.splice(index, 1, `${spaces}/** ${comment} */`, `${spaces}${content}`);
-    } else if (/^(\s+)(.+:.+)/.test(line)) {
-      // 匹配到不带注释的内容行，如 `    "pageNum":1,`
-      linesCopy.splice(index, 1, formatContent(line));
     }
+    // else if (/^(\s+)(.+:.+)/.test(line)) {
+    //   // 匹配到不带注释的内容行，如 `    "pageNum":1,`
+    //   linesCopy.splice(index, 1, formatContent(line));
+    // }
   }
   const output = linesCopy.join('\n');
   return output;
