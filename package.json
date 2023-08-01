@@ -21,6 +21,7 @@
   },
   "activationEvents": [
     "onLanguage:scss",
+    "onLanguage:json",
     "onLanguage:typescript",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",

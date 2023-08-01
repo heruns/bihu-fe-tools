@@ -32,7 +32,8 @@ function getParamPaths(document: TextDocument, line: TextLine, firstWord: string
     }
     if (currentLine.includes("{") && currentLine.includes(":")) {
       if (stackNum === 0) {
-        namePath.unshift(currentLine.split(":")[0].trim());
+        const key = currentLine.match(/^\s*"([^"]+)/)?.[1];
+        key && namePath.unshift(key);
       } else {
         stackNum--;
       }
@@ -47,7 +48,7 @@ function getParamPaths(document: TextDocument, line: TextLine, firstWord: string
 function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
   try {
     let paramPaths = originParamPaths.map((path) => ({ path, stackNum: 0 }));
-    let currentLine = 0;
+    let currentLine = 1;
     let regexp = new RegExp(`["' ]${paramPaths[0].path}\\W`);
     const shiftParamPaths: typeof paramPaths = [{ path: "_root", stackNum: 0 }]; // 被弹出的 param，当发现结构不符时，重新入栈
     const fileLines = fileStr.split("\n");
@@ -124,15 +125,12 @@ function addNewKey(paramPaths: string[], targetFilePaths: string[], isGlobalLoca
 // 针对 locales 中 ts 翻译文件的跳转处理
 function switchTsI18n(document: TextDocument, position: Position): any {
   const fileName = document.fileName; // 当前文件完整路径
-  const word = document.getText(document.getWordRangeAtPosition(position)); // 当前光标所在单词
+  const regexp = /t\(['"](.+)['"]\)/g;
+  const wordPosition = document.getWordRangeAtPosition(position, regexp);
+  const word = document.getText(wordPosition); // 当前光标所在单词
   const line = document.lineAt(position); // 当前光标所在行字符串
 
-  // 如果非 src/locales 中的 ts 文件，则不做处理
-  if (!fileName.includes("locales")) {
-    console.log('fileName.includes("locales")');
-    return;
-  }
-
+  // TODO: 读取 i18n 目录下所有文件，找出包含当前翻译的文件
   const isZh = fileName.includes("zh"); // 当前是否为中文字符串
   const targetFilePath = isZh ? fileName.replace("zh", "en") : fileName.replace("en", "zh");
 
@@ -155,19 +153,19 @@ function switchTsI18n(document: TextDocument, position: Position): any {
 // 针对单文件翻译跳转
 function switchJsonI18n(document: TextDocument, position: Position): any {
   const fileName = document.fileName; // 当前文件完整路径
-  const word = document.getText(document.getWordRangeAtPosition(position)); // 当前光标所在单词
+  const word = document.getText(document.getWordRangeAtPosition(position, /([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\s]+)/g)); // 当前光标所在单词
   const line = document.lineAt(position); // 当前光标所在行字符串
 
-  // 如果非 .i18n.json 文件，则不做处理
-  if (!fileName.includes(".i18n.json")) {
+  // 如果非 zh.json 或 en.json，则不做处理
+  if (!/(zh|en)\.json$/.test(fileName)) {
     return;
   }
 
   const namePath = getParamPaths(document, line, word); // 完整对象层级
-  const targetFileStr = fs.readFileSync(fileName, "utf-8") as string;
-  const isZh = namePath.includes('"zh"'); // 当前是否为中文字符串
-  namePath.shift();
-  namePath.unshift(isZh ? '"en"' : '"zh"');
+  const targetFileName = fileName.replace(/(zh|en)\.json$/, (matched, lang) => {
+    return `${lang === 'zh' ? 'en' : 'zh'}.json`;
+  });
+  const targetFileStr = fs.readFileSync(targetFileName, "utf-8") as string;
 
   const targetPosition = getParamPositionNew(targetFileStr, namePath);
   if (!targetPosition) {
@@ -175,7 +173,7 @@ function switchJsonI18n(document: TextDocument, position: Position): any {
     return;
   }
 
-  return new Location(Uri.file(fileName), targetPosition);
+  return new Location(Uri.file(targetFileName), targetPosition);
 }
 
 // 针对跳转至具体的翻译
@@ -450,57 +448,17 @@ function searchI18n(textEditor: TextEditor, edit: TextEditorEdit): any {
   });
 }
 
-function setListen() {
-  const port = 14301;
-
-  http
-    .createServer(function (request, response: any) {
-      try {
-        const { query } = url.parse(request.url as string);
-        const { action, key } = querystring.parse(query as string);
-        response.setHeader("Access-Control-Allow-Origin", "*");
-        response.setHeader("Access-Control-Allow-Methods", "PUT,POST,GET,DELETE,OPTIONS");
-        if (action === "search") {
-          commands.executeCommand("workbench.action.findInFiles", {
-            query: key,
-            filesToInclude: "./src",
-            triggerSearch: true,
-            matchWholeWord: true,
-            isCaseSensitive: true,
-          });
-        } else {
-          throw new Error("no such action");
-        }
-        response.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-        response.end("搜索成功，请查看 vscode");
-      } catch (error) {
-        response.writeHead(401, { "Content-Type": "text/plain; charset=utf-8" });
-        response.end("参数错误，请检查");
-      }
-    })
-    .listen(port);
-  console.log(`Server running at http://127.0.0.1:${port}/`);
-}
-
 // 插件被激活时所调用的函数，仅被激活时调用，仅进入一次
-console.log("bihu-code-snippets plugin read");
 export function activate(context: ExtensionContext) {
   console.log("i18n activate");
 
-  setListen();
-
-  // 设置单词分隔
-  languages.setLanguageConfiguration("typescript", {
-    wordPattern: /([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\s]+)/g,
-  });
-
-  // 设置单词分隔
-  languages.setLanguageConfiguration("json", {
-    wordPattern: /([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\.\<\>\/\s]+)/g,
-  });
-
   context.subscriptions.push(
     languages.registerDefinitionProvider(["typescript"], {
+      provideDefinition: switchTsI18n,
+    })
+  );
+  context.subscriptions.push(
+    languages.registerDefinitionProvider(["typescriptreact"], {
       provideDefinition: switchTsI18n,
     })
   );
