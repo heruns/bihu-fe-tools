@@ -10,6 +10,9 @@
   ![px2vw-select-and-replace](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/px2vw-select-and-replace.gif)
   - 在 SCSS 值中输入数字值或 `px2vw` 开头的值时智能提示
   ![px2vw-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/px2vw-intellisense.gif)
+- i18n 文件跳转
+  - 基于 [Momo707577045/i18n-jump](https://github.com/Momo707577045/i18n-jump/tree/main) 修改，适用于 react-i18next 项目
+  - 添加复制 json key 路径功能
 - 组件重命名
   - 一键替换文件名和文件内容
   ![component-rename](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/component-rename.gif)
@@ -38,6 +41,9 @@ This plugin is mainly related to JS/TS/React/SCSS and includes the following fea
 - Support for the `px2vw` custom function in SCSS
   - Automatically add `px2vw()` function call to all px values in the selected area of SCSS code
   - Smart prompt for numeric values or values starting with `px2vw` in `:global(.mobile)` or `.isMobile` selectors
+- i18n file jumping
+  - Based on [Momo707577045/i18n-jump](https://github.com/Momo707577045/i18n-jump/tree/main), modified for use in react-i18next projects
+  - Added the function to copy the JSON key path.
 - Component renaming
   - One-click replacement of file names and file contents
 - Smart import along with code snippet generation
