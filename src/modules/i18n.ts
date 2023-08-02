@@ -1,5 +1,6 @@
 import * as path from "path";
 import * as fs from "fs";
+import { get } from 'lodash';
 import {
   TextDocument,
   TextLine,
@@ -14,6 +15,7 @@ import {
   TextEditor,
   TextEditorEdit,
   ExtensionContext,
+  Hover,
 } from "vscode";
 
 // 获取当前参数的全层级路径，
@@ -71,7 +73,7 @@ function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
       currentLine++;
     }
     const lastWord = shiftParamPaths.pop()?.path!;
-    console.log("getParamPositionNew", currentLine, lastWord, paramPaths, originParamPaths, currentLineStr);
+    // console.log("getParamPositionNew", currentLine, lastWord, paramPaths, originParamPaths, currentLineStr);
     // 还有路径没匹配完，证明未命中
     if (paramPaths.length) {
       return null;
@@ -87,10 +89,14 @@ const isZhJson = (fileName: string) => /zh\.json$/.test(fileName);
 // const isEnJson = (fileName: string) => /en\.json$/.test(fileName);
 interface TraverseResult {
   fileName: string;
+  content: string;
   position: Position;
 }
+interface TraverseGetPosition {
+  (dir: string, originParamPaths: string[], getAll?: boolean): TraverseResult[];
+}
 // 递归遍历目录
-function traverseGetPosition(dir: string, originParamPaths: string[]): TraverseResult | null {
+const traverseGetPosition: TraverseGetPosition = (dir, originParamPaths, getAll) => {
   const files = fs.readdirSync(dir);
   // 排序，优先跳转到中文文件
   files.sort((a, b) => {
@@ -102,44 +108,51 @@ function traverseGetPosition(dir: string, originParamPaths: string[]): TraverseR
     return 0;
   });
 
+  let result: TraverseResult[] = [];
   for (const file of files) {
     const filePath = path.join(dir, file);
     const stats = fs.statSync(filePath);
 
     if (stats.isDirectory()) {
-      const result = traverseGetPosition(filePath, originParamPaths);
-      if (result) {
-        return result;
+      const res = traverseGetPosition(filePath, originParamPaths, getAll);
+      if (res.length) {
+        result.push(...res);
       }
     } else if (path.extname(filePath) === '.json') {
       const content = fs.readFileSync(filePath, 'utf8');
       const position = getParamPositionNew(content, originParamPaths);
       if (position) {
-        return {
+        result.push({
           fileName: filePath,
+          content,
           position
-        };
+        });
       } 
     }
+
+    if (result.length && !getAll) {
+      return result;
+    }
   }
-  return null;
-}
-// 针对 locales 中 ts 翻译文件的跳转处理
-function switchTsI18n(document: TextDocument, position: Position): any {
+  return result;
+};
+// 在 ts 文件中获取关联的 json 文件信息
+const getRelatedJsonInfoInTsFile = (document: TextDocument, position: Position, getAllResult = false) => {
   const fileName = document.fileName; // 当前文件完整路径
   const workspaceFolder = workspace.workspaceFolders?.find(folder => fileName.startsWith(folder.uri.fsPath));
   if (!workspaceFolder) {
     return;
   }
 
-  const regexp = /t\(['"](.+?)['"]\)/;
-  const wordPosition = document.getWordRangeAtPosition(position, regexp);
+  const regexp = /t\(['"](.+?)['"]/;
+  const regexp1 = /i18nKey=['"](.+?)['"]/;
+  const wordPosition = document.getWordRangeAtPosition(position, regexp) || document.getWordRangeAtPosition(position, regexp1);
   if (!wordPosition) {
     return;
   }
 
   const word = document.getText(wordPosition); // 当前光标所在单词
-  const keyPathStr = word.match(regexp)?.[1];
+  const keyPathStr = word.match(regexp)?.[1] || word.match(regexp1)?.[1];
   if (!keyPathStr) {
     return;
   }
@@ -154,14 +167,45 @@ function switchTsI18n(document: TextDocument, position: Position): any {
   }, []);
   const clickedKeyIndex = keysRange.findIndex(range => range[0] <= position.character && range[1] >= position.character);
   const searchKeys = keys.slice(0, clickedKeyIndex + 1);
+  // console.log('>>>> searchKeys:', searchKeys);
 
-  const result = traverseGetPosition(path.resolve(workspaceFolder.uri.fsPath, 'src/i18n'), searchKeys);
-  if (!result) {
-    window.showWarningMessage(`未找到 "${keyPathStr}" 对应翻译`);
+  const result = traverseGetPosition(path.resolve(workspaceFolder.uri.fsPath, 'src/i18n'), searchKeys, getAllResult);
+
+  return {
+    keyPath: searchKeys,
+    keyPathStr: searchKeys.join('.'),
+    traverseResult: result
+  };
+};
+// 针对 locales 中 ts 翻译文件的跳转处理
+function switchTsI18n(document: TextDocument, position: Position): any {
+  const res = getRelatedJsonInfoInTsFile(document, position);
+  if (!res || !res.traverseResult.length) {
+    // window.showWarningMessage(`未找到 "${keyPathStr}" 对应翻译`);
     return;
   }
 
+  const result = res.traverseResult[0];
   return new Location(Uri.file(result.fileName), result.position);
+}
+// ts 文件 hover 显示内容
+function tsProvideHover(document: TextDocument, position: Position) {
+  const res = getRelatedJsonInfoInTsFile(document, position, true);
+  if (!res || !res.traverseResult.length) {
+    return;
+  }
+
+  const getValue = (jsonContent: string) => {
+    const obj = JSON.parse(jsonContent);
+    const value = get(obj, res.keyPathStr);
+    return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  };
+  const hoverContent = res.traverseResult.map(result => getValue(result.content)).join('\n\n');
+  if (!hoverContent) {
+    return;
+  }
+
+  return new Hover(hoverContent);
 }
 
 // 获取 json 文件中光标所在位置的 key 路径数组
@@ -171,28 +215,56 @@ const getKeyPath = (document: TextDocument, position: Position) => {
   const namePath = getParamPaths(document, line, word); // 完整对象层级
   return namePath;
 };
-// 针对单文件翻译跳转
-function switchJsonI18n(document: TextDocument, position: Position): any {
+// 在 json 文件中获取关联的 json 文件信息
+const getRelatedJsonInfoInJsonFile = (document: TextDocument, position: Position) => {
   const regexp = /(zh|en)\.json$/;
   const fileName = document.fileName; // 当前文件完整路径
   // 如果非 zh.json 或 en.json，则不做处理
   if (!regexp.test(fileName)) {
-    return;
+    return null;
   }
 
   const targetFileName = fileName.replace(regexp, (matched, lang) => {
     return `${lang === 'zh' ? 'en' : 'zh'}.json`;
   });
   const targetFileStr = fs.readFileSync(targetFileName, "utf-8") as string;
-  
-  const namePath = getKeyPath(document, position);
-  const targetPosition = getParamPositionNew(targetFileStr, namePath);
+  const keyPath = getKeyPath(document, position);
+
+  return {
+    keyPath,
+    targetFileName,
+    targetFileStr
+  };
+};
+// 针对单文件翻译跳转
+function switchJsonI18n(document: TextDocument, position: Position) {
+  const res = getRelatedJsonInfoInJsonFile(document, position);
+  if (!res) {
+    return;
+  }
+  const { targetFileName, targetFileStr, keyPath } = res;
+  const targetPosition = getParamPositionNew(targetFileStr, keyPath);
   if (!targetPosition) {
-    window.showWarningMessage(`未找到 "${namePath.join('.')}" 对应翻译`);
+    // window.showWarningMessage(`未找到 "${namePath.join('.')}" 对应翻译`);
     return;
   }
 
   return new Location(Uri.file(targetFileName), targetPosition);
+}
+// json 文件 hover 显示内容
+function jsonProvideHover(document: TextDocument, position: Position) {
+  const res = getRelatedJsonInfoInJsonFile(document, position);
+  if (!res) {
+    return;
+  }
+  const { targetFileStr, keyPath } = res;
+  const obj = JSON.parse(targetFileStr);
+  const value = get(obj, keyPath.join('.'));
+  if (!value) {
+    return;
+  }
+  const hoverContent = typeof value === 'string' ? value : JSON.stringify(value);
+  return new Hover(hoverContent);
 }
 
 // 复制 json key 路径
@@ -227,7 +299,7 @@ function searchI18n(textEditor: TextEditor, edit: TextEditorEdit): any {
   // 直接从源码中查看配置
   // https://github.com/microsoft/vscode/blob/17de08a829e56657e44213a70cf69d18f06e74a5/src/vs/workbench/contrib/search/browser/searchActions.ts#L160-L188
   commands.executeCommand("workbench.action.findInFiles", {
-    query: `t('${namePath.join(".")}`,
+    query: `${namePath.join(".")}`,
     filesToInclude: "./src",
     triggerSearch: true,
     matchWholeWord: true,
@@ -275,14 +347,27 @@ export function activate(context: ExtensionContext) {
     wordPattern: /([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\s]+)/g,
   });
 
+  // 注册 ts 文件鼠标悬停提示
   context.subscriptions.push(
-    languages.registerDefinitionProvider(["typescript"], {
-      provideDefinition: switchTsI18n,
-    })
+    languages.registerHoverProvider(
+      ["typescript", "typescriptreact", "javascript", "javascriptreact"],
+      {
+        provideHover: tsProvideHover
+      }
+    )
   );
   context.subscriptions.push(
-    languages.registerDefinitionProvider(["typescriptreact"], {
-      provideDefinition: switchTsI18n,
+    languages.registerDefinitionProvider(
+      ["typescript", "typescriptreact", "javascript", "javascriptreact"],
+      {
+        provideDefinition: switchTsI18n,
+      }
+    )
+  );
+  // 注册 json 文件鼠标悬停提示
+  context.subscriptions.push(
+    languages.registerHoverProvider('json', {
+      provideHover: jsonProvideHover
     })
   );
   context.subscriptions.push(
@@ -291,8 +376,12 @@ export function activate(context: ExtensionContext) {
     })
   );
 
-  context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path", textEditor => copyJsonKeyPath(textEditor)));
-  context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path-with-t", textEditor => copyJsonKeyPathWithT(textEditor)));
+  context.subscriptions.push(
+    commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path", textEditor => copyJsonKeyPath(textEditor))
+  );
+  context.subscriptions.push(
+    commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path-with-t", textEditor => copyJsonKeyPathWithT(textEditor))
+  );
   context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.search-i18n", searchI18n));
   context.subscriptions.push(commands.registerCommand("bihu-code-snippets.jump-git", jumpGit));
 }
