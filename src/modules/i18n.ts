@@ -1,9 +1,5 @@
 import * as path from "path";
 import * as fs from "fs";
-import * as url from "url";
-import * as http from "http";
-import * as querystring from "querystring";
-import { set, get } from "lodash";
 import {
   TextDocument,
   TextLine,
@@ -11,7 +7,6 @@ import {
   Location,
   Uri,
   env,
-  Range,
   window,
   workspace,
   commands,
@@ -79,368 +74,160 @@ function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
     console.log("getParamPositionNew", currentLine, lastWord, paramPaths, originParamPaths, currentLineStr);
     // 还有路径没匹配完，证明未命中
     if (paramPaths.length) {
-      return false;
+      return null;
     }
     return new Position(currentLine - 1, currentLineStr.indexOf(lastWord));
   } catch (error) {
     console.log(error);
   }
+  return null;
 }
 
-// 往特定层级中，添加新的 key
-function addNewKey(paramPaths: string[], targetFilePaths: string[], isGlobalLocale: boolean) {
-  targetFilePaths.forEach((targetFilePath) => {
-    let fileStr = fs.readFileSync(targetFilePath, "utf-8") as string; // 文件文本
-    let jsonObj = {};
-    try {
-      if (isGlobalLocale) {
-        fileStr = fileStr.replace("export default", "");
-        eval("global.resultJsonObj = " + fileStr);
-        // @ts-ignore
-        jsonObj = global.resultJsonObj as any;
-        set(jsonObj, paramPaths.slice(1).join("."), get(jsonObj, paramPaths.join(".")) || "");
-        let fileResultStr = "export default " + JSON.stringify(jsonObj, null, 4);
-        const variableNameRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/;
-        fileResultStr = fileResultStr
-          .replace(/"([^"]+)":/gi, (matchStr, $1) => (variableNameRegex.test($1) ? `${$1}:` : `"${$1}":`))
-          .replace(/"/gi, "¸")
-          .replace(/'/gi, '"')
-          .replace(/¸/gi, "'")
-          .replace(/\\'/gi, '"')
-          .replace(/'\n/gi, "',\n")
-          .replace(/}\n/gi, "},\n");
-        fs.writeFileSync(targetFilePath, fileResultStr + ";\n", "utf-8"); // 文件文本
-      } else {
-        jsonObj = JSON.parse(fileStr);
-        set(jsonObj, ["en", ...paramPaths].join("."), get(jsonObj, ["en", ...paramPaths].join(".")) || "");
-        set(jsonObj, ["zh", ...paramPaths].join("."), get(jsonObj, ["zh", ...paramPaths].join(".")) || "");
-        fs.writeFileSync(targetFilePath, JSON.stringify(jsonObj, null, 4), "utf-8"); // 文件文本
-      }
-    } catch (error) {
-      console.log("addNewKey", error);
+const isZhJson = (fileName: string) => /zh\.json$/.test(fileName);
+// const isEnJson = (fileName: string) => /en\.json$/.test(fileName);
+interface TraverseResult {
+  fileName: string;
+  position: Position;
+}
+// 递归遍历目录
+function traverseGetPosition(dir: string, originParamPaths: string[]): TraverseResult | null {
+  const files = fs.readdirSync(dir);
+  // 排序，优先跳转到中文文件
+  files.sort((a, b) => {
+    if (isZhJson(a)) {
+      return -1;
+    } else if (isZhJson(b)) {
+      return 1;
     }
+    return 0;
   });
-}
 
+  for (const file of files) {
+    const filePath = path.join(dir, file);
+    const stats = fs.statSync(filePath);
+
+    if (stats.isDirectory()) {
+      const result = traverseGetPosition(filePath, originParamPaths);
+      if (result) {
+        return result;
+      }
+    } else if (path.extname(filePath) === '.json') {
+      const content = fs.readFileSync(filePath, 'utf8');
+      const position = getParamPositionNew(content, originParamPaths);
+      if (position) {
+        return {
+          fileName: filePath,
+          position
+        };
+      } 
+    }
+  }
+  return null;
+}
 // 针对 locales 中 ts 翻译文件的跳转处理
 function switchTsI18n(document: TextDocument, position: Position): any {
   const fileName = document.fileName; // 当前文件完整路径
-  const regexp = /t\(['"](.+)['"]\)/g;
+  const workspaceFolder = workspace.workspaceFolders?.find(folder => fileName.startsWith(folder.uri.fsPath));
+  if (!workspaceFolder) {
+    return;
+  }
+
+  const regexp = /t\(['"](.+?)['"]\)/;
   const wordPosition = document.getWordRangeAtPosition(position, regexp);
+  if (!wordPosition) {
+    return;
+  }
+
   const word = document.getText(wordPosition); // 当前光标所在单词
-  const line = document.lineAt(position); // 当前光标所在行字符串
-
-  // TODO: 读取 i18n 目录下所有文件，找出包含当前翻译的文件
-  const isZh = fileName.includes("zh"); // 当前是否为中文字符串
-  const targetFilePath = isZh ? fileName.replace("zh", "en") : fileName.replace("en", "zh");
-
-  // 对应翻译文件不存在
-  if (!fs.existsSync(targetFilePath)) {
-    return;
-  }
-  const targetFileStr = fs.readFileSync(targetFilePath, "utf-8") as string;
-  const namePath = getParamPaths(document, line, word); // 完整对象层级
-
-  const targetPosition = getParamPositionNew(targetFileStr, namePath);
-  if (!targetPosition) {
-    window.showInformationMessage("未找到对应翻译");
+  const keyPathStr = word.match(regexp)?.[1];
+  if (!keyPathStr) {
     return;
   }
 
-  return new Location(Uri.file(targetFilePath), targetPosition);
+  // 跳转到点击位置对应的 key
+  const keyPathStrIndex = document.lineAt(position).text.indexOf(keyPathStr);
+  const keys = keyPathStr.split('.');
+  const keysRange = keys.reduce<[number, number][]>((ranges, key, index) => {
+    const startIndex = index > 0 ? ranges[index - 1][1] + 2 : keyPathStrIndex;
+    const endIndex = startIndex + key.length;
+    return ranges.concat([[startIndex, endIndex]]);
+  }, []);
+  const clickedKeyIndex = keysRange.findIndex(range => range[0] <= position.character && range[1] >= position.character);
+  const searchKeys = keys.slice(0, clickedKeyIndex + 1);
+
+  const result = traverseGetPosition(path.resolve(workspaceFolder.uri.fsPath, 'src/i18n'), searchKeys);
+  if (!result) {
+    window.showWarningMessage(`未找到 "${keyPathStr}" 对应翻译`);
+    return;
+  }
+
+  return new Location(Uri.file(result.fileName), result.position);
 }
 
+// 获取 json 文件中光标所在位置的 key 路径数组
+const getKeyPath = (document: TextDocument, position: Position) => {
+  const word = document.getText(document.getWordRangeAtPosition(position)); // 当前光标所在单词
+  const line = document.lineAt(position); // 当前光标所在行字符串
+  const namePath = getParamPaths(document, line, word); // 完整对象层级
+  return namePath;
+};
 // 针对单文件翻译跳转
 function switchJsonI18n(document: TextDocument, position: Position): any {
+  const regexp = /(zh|en)\.json$/;
   const fileName = document.fileName; // 当前文件完整路径
-  const word = document.getText(document.getWordRangeAtPosition(position, /([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\s]+)/g)); // 当前光标所在单词
-  const line = document.lineAt(position); // 当前光标所在行字符串
-
   // 如果非 zh.json 或 en.json，则不做处理
-  if (!/(zh|en)\.json$/.test(fileName)) {
+  if (!regexp.test(fileName)) {
     return;
   }
 
-  const namePath = getParamPaths(document, line, word); // 完整对象层级
-  const targetFileName = fileName.replace(/(zh|en)\.json$/, (matched, lang) => {
+  const targetFileName = fileName.replace(regexp, (matched, lang) => {
     return `${lang === 'zh' ? 'en' : 'zh'}.json`;
   });
   const targetFileStr = fs.readFileSync(targetFileName, "utf-8") as string;
-
+  
+  const namePath = getKeyPath(document, position);
   const targetPosition = getParamPositionNew(targetFileStr, namePath);
   if (!targetPosition) {
-    window.showInformationMessage("未找到对应翻译");
+    window.showWarningMessage(`未找到 "${namePath.join('.')}" 对应翻译`);
     return;
   }
 
   return new Location(Uri.file(targetFileName), targetPosition);
 }
 
-// 针对跳转至具体的翻译
-function jumpI18n(lang: "en" | "cn", textEditor: TextEditor, edit: TextEditorEdit): any {
+// 复制 json key 路径
+const copyJsonKeyPath = async(textEditor: TextEditor, formatter?: (keyPath: string) => string) => {
   const { document } = textEditor;
-  const fileName = document.fileName; // 当前文件完整路径
-  const fileStr = fs.readFileSync(fileName, "utf-8") as string; // 文件文本
-  const namePath = (document.getText(textEditor.selection) || "").split("."); // 当前选中翻译文本的路径
-  let customI18nPath = fileName.endsWith('en.json') ? fileName.replace('en.json', 'zh.json') : fileName.replace('zh.json', 'en.json');
-  // let customI18nPath = (fileStr.match(/<i18n.+src="([^"]+)".+i18n>/) || [])[1]; // 获取 vue 注入的翻译文件
-  let globalI18nFilePath = path.resolve(fileName.split("src")[0], "src", "locales", lang === "en" ? "en" : "zh", namePath[0] + ".json");
-
-  function findPosition() {
-    // 存在翻译特别注入的翻译文件，则先从这里找，否则再从全局找
-    if (customI18nPath) {
-      const tempNamePath = [...namePath.map((word) => `"${word}"`)];
-      if (customI18nPath.includes("@")) {
-        customI18nPath = customI18nPath.replace("@/", "");
-        customI18nPath = path.resolve(fileName.split("src")[0], "src", customI18nPath);
-      } else if (!path.isAbsolute(customI18nPath)) {
-        customI18nPath = path.resolve(path.dirname(fileName), customI18nPath);
-      }
-      const customI18nStr = fs.readFileSync(customI18nPath, "utf-8") as string; // 文件文本
-      const targetPosition = getParamPositionNew(customI18nStr, tempNamePath);
-      if (targetPosition) {
-        const selection = new Range(targetPosition, targetPosition);
-        const openedEditor = window.visibleTextEditors.find((e) => e.document.fileName === customI18nPath);
-        if (openedEditor) {
-          window.showTextDocument(openedEditor.document, {
-            selection,
-            viewColumn: openedEditor.viewColumn,
-          });
-        } else {
-          workspace.openTextDocument(Uri.file(customI18nPath)).then((document) => {
-            window.showTextDocument(document, {
-              selection,
-            });
-          });
-        }
-        return true;
-      }
-    }
-
-    // 无特别注入的翻译，则从全局路径中找
-    if (fs.existsSync(globalI18nFilePath)) {
-      const globalI18nStr = fs.readFileSync(globalI18nFilePath, "utf-8") as string; // 文件文本
-      const targetPosition = getParamPositionNew(globalI18nStr, namePath.slice(1));
-      if (targetPosition) {
-        const selection = new Range(targetPosition, targetPosition);
-        const openedEditor = window.visibleTextEditors.find((e) => e.document.fileName === globalI18nFilePath);
-        if (openedEditor) {
-          window.showTextDocument(openedEditor.document, {
-            selection,
-            viewColumn: openedEditor.viewColumn,
-          });
-        } else {
-          workspace.openTextDocument(Uri.file(globalI18nFilePath)).then((document) => {
-            window.showTextDocument(document, {
-              selection,
-            });
-          });
-        }
-        return true;
-      }
-    }
-  }
-
-  if (findPosition()) {
+  const position = textEditor.selection.active;
+  if (!position) {
     return;
-  } else if (customI18nPath) {
-    addNewKey(namePath, [customI18nPath], false);
-    findPosition();
-  } else if (fs.existsSync(globalI18nFilePath)) {
-    addNewKey(namePath, [globalI18nFilePath.replace("en", "zh"), globalI18nFilePath.replace("zh", "en")], true);
-    findPosition();
-  } else {
-    window.showInformationMessage("未找到对应翻译，选区是否正确");
   }
-}
-
-// 跳转至 store 定义处
-function jumpStore(textEditor: TextEditor, edit: TextEditorEdit): any {
-  const { document } = textEditor;
-  const fileName = document.fileName; // 当前文件完整路径
-  const fileLines = fs.readFileSync(fileName, "utf-8").split("\n"); // 文件文本
-  const lineNum = textEditor.selection.start.line; // 所在行数
-  const lineStr = document.lineAt(lineNum).text; // 当前光标所在行字符串
-  const targetKey = document.getText(textEditor.selection); // 当前选中文本
-  const isMapField = !lineStr.includes("@"); // 有 @ 前缀，则证明是非 MapField，可能是 getter, mutation, action
-  let isState = isMapField;
-  let channel = ""; // 所属渠道
-  let namespace: "root" | "index" | "ad" | "adset" | "campaign" = "root";
-
-  // 根据路径找到当前渠道
-  const channelNames: string[] = [];
-  const channelStoreDirPath = path.resolve(fileName.split("src")[0], "src", "store", "adsCreate"); // store 文件夹
-  const files = fs.readdirSync(channelStoreDirPath);
-  for (let i = 0; i < files.length; i++) {
-    const filePath = path.join(channelStoreDirPath, files[i]);
-    const fileStat = fs.statSync(filePath);
-    if (fileStat.isDirectory()) {
-      channelNames.push(files[i]);
-    }
+  const keyPath = getKeyPath(document, position);
+  const keyPathStr = keyPath.join('.');
+  const textToCopy = formatter ? formatter(keyPathStr) : keyPathStr;
+  try {
+    await env.clipboard.writeText(textToCopy);
+    window.showInformationMessage(`${textToCopy} 复制成功`);
+  } catch(e) {
+    window.showErrorMessage(`${textToCopy} 复制失败`);
   }
-
-  for (let channelIndex = 0; channelIndex < channelNames.length; channelIndex++) {
-    const channelName = channelNames[channelIndex];
-    if (fileName.includes(channelName)) {
-      channel = channelName;
-      break;
-    }
-  }
-
-  // 寻找对应 store 中的那个文件
-  if (isMapField) {
-    let currentLineNum = lineNum;
-    while (currentLineNum >= 0) {
-      if (fileLines[currentLineNum].includes("{")) {
-        if (!fileLines[currentLineNum].includes("mapFields")) {
-          currentLineNum = -1;
-        } else {
-          namespace = (fileLines[currentLineNum].split("/")[1] || "index`").split("'")[0].split("`")[0] as any;
-        }
-        break;
-      }
-      currentLineNum--;
-    }
-    if (currentLineNum < 0) {
-      window.showInformationMessage("未找到对应 store，请选中 mapFields，Getter，mutation 或 action");
-      return;
-    }
-  } else {
-    const [namespaceStr] = lineStr.split(".");
-    console.log("namespaceStr", namespaceStr, lineStr);
-    if (lineStr.includes("State(")) {
-      isState = true;
-    }
-    if (namespaceStr.includes("adCreate") || namespaceStr.includes("AdCreate")) {
-      namespace = "index";
-    } else if (namespaceStr.includes("adset")) {
-      namespace = "adset";
-    } else if (namespaceStr.includes("campaign")) {
-      namespace = "campaign";
-    } else if (namespaceStr.includes("ad")) {
-      namespace = "ad";
-    }
-  }
-
-  // 从文件中搜索关键字
-  function searchKey(searchStr: string, targetFilePaths: string[]) {
-    for (let pathIndex = 0; pathIndex < targetFilePaths.length; pathIndex++) {
-      const targetFilePath = targetFilePaths[pathIndex];
-      console.log(searchStr, targetFilePath);
-      if (!fs.existsSync(targetFilePath)) {
-        console.log(targetFilePath, "not exist");
-        continue;
-      }
-      const targetFileLines = fs.readFileSync(targetFilePath, "utf-8").split("\n"); // 文件文本
-      let currentLine = 0;
-      while (currentLine < targetFileLines.length) {
-        if (targetFileLines[currentLine].includes(searchStr)) {
-          workspace.openTextDocument(Uri.file(targetFilePath)).then((document) => {
-            const targetPosition = new Position(currentLine, targetFileLines[currentLine].indexOf(searchStr));
-            window.showTextDocument(document, { selection: new Range(targetPosition, targetPosition) });
-          });
-          return true;
-        }
-        currentLine++;
-      }
-    }
-    window.showInformationMessage("未找到对应 store，请选中 mapFields，Getter，mutation 或 action");
-    return false;
-  }
-  console.log("namespace", namespace);
-
-  // 遍历 dist 文件夹中的文件，获取文件相对路径
-  function traverseFile(dirPath: string) {
-    let urls: string[] = [];
-    let files = fs.readdirSync(dirPath);
-    for (let i = 0, length = files.length; i < length; i++) {
-      let fileName = files[i];
-      let fileExtName = fileName.split(".")[fileName.split(".").length - 1];
-      let fileAbsolutePath = `${dirPath}/${fileName}`; // 文件绝对路径
-      // 过滤 adsCreate 文件夹
-      if (["adsCreate"].includes(fileExtName)) {
-        continue;
-      }
-      let stats = fs.statSync(fileAbsolutePath);
-      if (stats.isDirectory()) {
-        urls = [...traverseFile(fileAbsolutePath), ...urls];
-      } else {
-        urls.push(fileAbsolutePath.substring(1)); // 去除首字母 '/'，避免 '//' 路径
-      }
-    }
-    return urls;
-  }
-
-  const adsCreateStoreDir = path.resolve(fileName.split("src")[0], "src", "views", "adsCreate", "MixinsAdsCreate");
-  const allStoreFiles = [
-    ...traverseFile(path.resolve(fileName.split("src")[0], "src", "store")),
-    path.resolve(path.resolve(adsCreateStoreDir, "StoreModuleMulti.ts")) as string,
-    path.resolve(path.resolve(adsCreateStoreDir, "StoreDimensionModule.ts")) as string,
-    path.resolve(path.resolve(adsCreateStoreDir, "StoreModule.ts")) as string,
-    path.resolve(path.resolve(adsCreateStoreDir, "viewAdsCreateNew", "store", "storeModule.ts")) as string,
-  ];
-
-  // 如果是 store index 上的 store，则直接找 store/index.ts
-  if (namespace === "root") {
-    return searchKey(isState ? `${targetKey}:` : `${targetKey}(`, [path.resolve(fileName.split("src")[0], "src", "store", "index.ts"), ...allStoreFiles]);
-  }
-
-  // 如果是 createIndex 上的 store，则直接找 StoreDimensionModule.ts 和 StoreModuleMulti.ts
-  if (namespace === "index") {
-    return searchKey(isState ? `${targetKey}:` : `${targetKey}(`, allStoreFiles);
-  }
-
-  // 处理各渠道的 store
-  const channelStoreDir = path.resolve(fileName.split("src")[0], "src", "store", "adsCreate", channel, namespace); // store 文件夹
-  if (isState) {
-    return searchKey(`${targetKey}:`, [path.resolve(channelStoreDir, "helper.ts"), path.resolve(channelStoreDir, "index.ts"), ...allStoreFiles]);
-  } else {
-    return searchKey(`${targetKey}(`, [path.resolve(channelStoreDir, "index.ts"), path.resolve(channelStoreDir, "helper.ts"), ...allStoreFiles]);
-  }
-}
-
-// 跳转到 gitlab 页面
-function jumpGit(uri: Uri) {
-  const workspaceFolders = workspace.workspaceFolders;
-  const gitDirPath = path.join(workspaceFolders![0].uri.fsPath, ".git");
-  const configPath = path.join(gitDirPath, "config");
-
-  fs.readFile(configPath, "utf8", (err: any, data: string) => {
-    const isGitlab = data.includes('git@gitlab');
-    const match = data.match(/url\s*=\s*(.*)/);
-    if (match) {
-      const branch = data.includes('refs/heads/master') ? 'master' : 'main';
-      const remoteUrl = match[1];
-      const matchParams = remoteUrl.match(/([^/@]+)@([^:/]+):(.+)\.git$/);
-      if (matchParams) {
-        const hostname = matchParams[2];
-        const path = matchParams[3];
-        env.openExternal(Uri.parse(`https://${hostname}/${path}/${isGitlab ? '-/' : ''}blob/${branch}${uri.path.split(workspace.rootPath!)[1]}`));
-      }
-    }
-  });
-}
+};
+// 复制 json key 路径（包含 t 函数调用）
+const copyJsonKeyPathWithT = (textEditor: TextEditor) => {
+  copyJsonKeyPath(textEditor, keyPathStr => `t('${keyPathStr}')`);
+};
 
 // 搜索使用该翻译的地方
 function searchI18n(textEditor: TextEditor, edit: TextEditorEdit): any {
   const { document } = textEditor;
-  const fileName = document.fileName; // 当前文件完整路径
-  const word = document.getText(textEditor.selection); // 当前光标所在单词
+  const word = document.getText(document.getWordRangeAtPosition(textEditor.selection.active)); // 当前光标所在单词
   const line = document.lineAt(textEditor.selection.start.line); // 当前光标所在行字符串
   const namePath = getParamPaths(document, line, word); // 完整对象层级
-  if (fileName.includes(".i18n.json")) {
-    namePath.shift();
-  } else if (fileName.includes("locales")) {
-    namePath.unshift(fileName.split("/").slice(-1)[0].split(".")[0]);
-  } else if (fileName.includes("locales")) {
-    namePath.length = 0;
-    namePath.push(word);
-  }
 
   // 直接从源码中查看配置
   // https://github.com/microsoft/vscode/blob/17de08a829e56657e44213a70cf69d18f06e74a5/src/vs/workbench/contrib/search/browser/searchActions.ts#L160-L188
   commands.executeCommand("workbench.action.findInFiles", {
-    query: namePath.join(".").replace(/"/g, ""),
+    query: `t('${namePath.join(".")}`,
     filesToInclude: "./src",
     triggerSearch: true,
     matchWholeWord: true,
@@ -448,9 +235,45 @@ function searchI18n(textEditor: TextEditor, edit: TextEditorEdit): any {
   });
 }
 
+// 跳转到 gitlab 页面
+function jumpGit(uri: Uri) {
+  const workspaceFolders = workspace.workspaceFolders;
+  if (!workspaceFolders?.length) {
+    return;
+  }
+  const fsPath = workspaceFolders![0].uri.fsPath;
+  const workspaceFolderPath = workspaceFolders![0].uri.path;
+  const gitDirPath = path.join(fsPath, ".git");
+  const configPath = path.join(gitDirPath, "config");
+
+  fs.readFile(configPath, "utf8", (err: any, data: string) => {
+    const isGitlab = data.includes('git@gitlab') || data.includes('url = git@ssh.com');
+    const match = data.match(/url\s*=\s*(.*)/);
+    if (match) {
+      const branch = data.includes('refs/heads/master') ? 'master' : 'main';
+      const remoteUrl = match[1];
+      // 第一个正则匹配 ssh 路径，第二个匹配 http 路径
+      const matchParams = remoteUrl.match(/([^/@]+)@([^:/]+):(.+)\.git$/) || remoteUrl.match(/(https?:)\/\/([^/]+)\/(.+)\.git$/);
+      if (matchParams) {
+        const hostname = isGitlab ? matchParams[2]?.replace('ssh', 'gitlab') : matchParams[2];
+        const path = matchParams[3];
+        const baseUrl = `https://${hostname}/${path}`;
+        let uriToOpen = uri ? `${baseUrl}/${isGitlab ? '-/' : ''}blob/${branch}${uri.path.split(workspaceFolderPath)[1]}` : baseUrl;
+        // console.log('>>>> uriToOpen:', uriToOpen);
+        env.openExternal(Uri.parse(uriToOpen));
+      }
+    }
+  });
+}
+
 // 插件被激活时所调用的函数，仅被激活时调用，仅进入一次
 export function activate(context: ExtensionContext) {
   console.log("i18n activate");
+
+  // 设置单词分隔
+  languages.setLanguageConfiguration("json", {
+    wordPattern: /([^\`\~\!\@\$\^\&\*\(\)\=\+\[\{\]\}\\\|\;\:\'\"\,\<\>\/\s]+)/g,
+  });
 
   context.subscriptions.push(
     languages.registerDefinitionProvider(["typescript"], {
@@ -468,13 +291,8 @@ export function activate(context: ExtensionContext) {
     })
   );
 
-  context.subscriptions.push(
-    commands.registerTextEditorCommand("bihu-code-snippets.jump-i18n-cn", (textEditor: TextEditor, edit: TextEditorEdit) => jumpI18n("cn", textEditor, edit))
-  );
-  context.subscriptions.push(
-    commands.registerTextEditorCommand("bihu-code-snippets.jump-i18n-en", (textEditor: TextEditor, edit: TextEditorEdit) => jumpI18n("en", textEditor, edit))
-  );
-  context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.jump-store", jumpStore));
+  context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path", textEditor => copyJsonKeyPath(textEditor)));
+  context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path-with-t", textEditor => copyJsonKeyPathWithT(textEditor)));
   context.subscriptions.push(commands.registerTextEditorCommand("bihu-code-snippets.search-i18n", searchI18n));
   context.subscriptions.push(commands.registerCommand("bihu-code-snippets.jump-git", jumpGit));
 }
