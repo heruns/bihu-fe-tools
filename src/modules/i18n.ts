@@ -45,6 +45,9 @@ function getParamPaths(document: TextDocument, line: TextLine, firstWord: string
 function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
   try {
     let paramPaths = originParamPaths.map((path) => ({ path, stackNum: 0 }));
+    if (!paramPaths.length) {
+      return;
+    }
     let currentLine = 1;
     let regexp = new RegExp(`["' ]${paramPaths[0].path}\\W`);
     const shiftParamPaths: typeof paramPaths = [{ path: "_root", stackNum: 0 }]; // 被弹出的 param，当发现结构不符时，重新入栈
@@ -198,9 +201,25 @@ function tsProvideHover(document: TextDocument, position: Position) {
   const getValue = (jsonContent: string) => {
     const obj = JSON.parse(jsonContent);
     const value = get(obj, res.keyPathStr);
-    return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    let lang: '' | 'json';
+    let content: string;
+    if (typeof value === 'string') {
+      lang = '';
+      content = value;
+    } else {
+      lang = 'json';
+      content = JSON.stringify(value, null, 2);
+    }
+    return lang ? '```' + lang + '\n' + content + '\n```' : content;
   };
-  const hoverContent = res.traverseResult.map(result => getValue(result.content)).join('\n\n');
+  const hoverContent = res.traverseResult
+    .map(result => {
+      const target = Uri.file(result.fileName)
+        .with({ fragment: `L${result.position.line + 1}:${result.position.character}` }); // FIXME: 行号在点击链接时跳转会生效，列号无效
+      return `[${result.fileName}](${target}): \n\n${getValue(result.content)}`;
+    })
+    .join('\n\n');
+  console.log('>>>> hoverContent:', hoverContent);
   if (!hoverContent) {
     return;
   }

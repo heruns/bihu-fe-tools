@@ -2,6 +2,8 @@
 // 导入该模块并使用别名 vscode 引用它以在下面的代码中使用
 import * as vscode from 'vscode';
 
+// FIXME: 负数处理
+
 // 当您的扩展程序被激活时，将调用此方法
 // 您的扩展程序在第一次执行命令时被激活
 export function activate(context: vscode.ExtensionContext) {
