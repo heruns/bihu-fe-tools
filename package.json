@@ -139,6 +139,11 @@
           "type": "string",
           "description": "yapi 域名",
           "scope": "machine-overridable"
+        },
+        "bihuFeTools.yapiToken": {
+          "type": "string",
+          "description": "yapi 项目 token",
+          "scope": "machine-overridable"
         }
       }
     }
