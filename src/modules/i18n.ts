@@ -92,8 +92,8 @@ const isZhJson = (fileName: string) => /zh\.json$/.test(fileName);
 // const isEnJson = (fileName: string) => /en\.json$/.test(fileName);
 interface TraverseResult {
   fileName: string;
-  content: string;
   position: Position;
+  value: string;
 }
 interface TraverseGetPosition {
   (dir: string, originParamPaths: string[], getAll?: boolean): TraverseResult[];
@@ -127,7 +127,7 @@ const traverseGetPosition: TraverseGetPosition = (dir, originParamPaths, getAll)
       if (position) {
         result.push({
           fileName: filePath,
-          content,
+          value: content,
           position
         });
       } 
@@ -191,16 +191,17 @@ function switchTsI18n(document: TextDocument, position: Position): any {
   const result = res.traverseResult[0];
   return new Location(Uri.file(result.fileName), result.position);
 }
-// ts 文件 hover 显示内容
-function tsProvideHover(document: TextDocument, position: Position) {
-  const res = getRelatedJsonInfoInTsFile(document, position, true);
-  if (!res || !res.traverseResult.length) {
-    return;
-  }
 
-  const getValue = (jsonContent: string) => {
+interface HoverContentItem {
+  fileName: string;
+  position?: Position;
+  value: string;
+}
+// 获取 hover 内容
+const getHoverContent = (keyPath: string[], items: HoverContentItem[]) => {
+  const formatValue = (jsonContent: string) => {
     const obj = JSON.parse(jsonContent);
-    const value = get(obj, res.keyPathStr);
+    const value = get(obj, keyPath);
     let lang: '' | 'json';
     let content: string;
     if (typeof value === 'string') {
@@ -210,16 +211,30 @@ function tsProvideHover(document: TextDocument, position: Position) {
       lang = 'json';
       content = JSON.stringify(value, null, 2);
     }
-    return lang ? '```' + lang + '\n' + content + '\n```' : content;
+    return lang ? '```' + lang + '\n' + content + '\n```' : `\`${content.replace(/\n/g, "\\n")}\``;
   };
-  const hoverContent = res.traverseResult
-    .map(result => {
-      const target = Uri.file(result.fileName)
-        .with({ fragment: `L${result.position.line + 1}:${result.position.character}` }); // FIXME: 行号在点击链接时跳转会生效，列号无效
-      return `[${result.fileName}](${target}): \n\n${getValue(result.content)}`;
+  const hoverContent = items
+    .map(item => {
+      let fileName = item.fileName;
+      if (item.position) {
+        const target = Uri.file(item.fileName)
+          .with({ fragment: `L${item.position.line + 1},${item.position.character + 1}` });
+        fileName = `[${item.fileName}](${target})`;
+      }
+      return `${fileName}: \n\n${formatValue(item.value)}`;
     })
     .join('\n\n');
-  console.log('>>>> hoverContent:', hoverContent);
+  return hoverContent ? `**${keyPath.join('.')}**\n\n${hoverContent}` : '';
+};
+
+// ts 文件 hover 显示内容
+function tsProvideHover(document: TextDocument, position: Position) {
+  const res = getRelatedJsonInfoInTsFile(document, position, true);
+  if (!res || !res.traverseResult.length) {
+    return;
+  }
+
+  const hoverContent = getHoverContent(res.keyPath, res.traverseResult);
   if (!hoverContent) {
     return;
   }
@@ -276,13 +291,15 @@ function jsonProvideHover(document: TextDocument, position: Position) {
   if (!res) {
     return;
   }
-  const { targetFileStr, keyPath } = res;
-  const obj = JSON.parse(targetFileStr);
-  const value = get(obj, keyPath.join('.'));
-  if (!value) {
+  const hoverContent = getHoverContent(res.keyPath, [
+    {
+      fileName: res.targetFileName,
+      value: res.targetFileStr
+    }
+  ]);
+  if (!hoverContent) {
     return;
   }
-  const hoverContent = typeof value === 'string' ? value : JSON.stringify(value);
   return new Hover(hoverContent);
 }
 
