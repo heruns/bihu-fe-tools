@@ -87,6 +87,10 @@
       {
         "command": "bihu-code-snippets.jump-git",
         "title": "跳转到 Git 仓库"
+      },
+      {
+        "command": "bihu-code-snippets.config-yapi",
+        "title": "yapi 配置"
       }
     ],
     "menus": {
@@ -130,6 +134,11 @@
           "type": "boolean",
           "default": true,
           "description": "是否显示\"跳转到 Git 仓库\"菜单"
+        },
+        "bihuFeTools.yapiDomain": {
+          "type": "string",
+          "description": "yapi 域名",
+          "scope": "machine-overridable"
         }
       }
     }

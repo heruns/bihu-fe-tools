@@ -12,6 +12,7 @@
     "typescript.tsc.autoDetect": "off",
     "cSpell.words": [
         "antd",
-        "bihu"
+        "bihu",
+        "yapi"
     ]
 }
