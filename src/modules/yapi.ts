@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import axios from 'axios';
 
 const domainRegexp = /^(https?:\/\/[^/?#]+)(?:[\/?#]|$)/i;
 export function getDomainFromUrl(url: string): string {
@@ -99,12 +100,68 @@ export function activate(context: vscode.ExtensionContext) {
     return res;
   };
 
+  // 获取项目信息
+  const getProjectInfo = async() => {
+    const { domain, token } = await getDomainAndToken();
+    if (!domain || !token) {
+      return;
+    }
+    const projectInfo = await axios.get(`${domain}/api/project/get`, {
+      params: {
+        token
+      }
+    });
+    console.log('>>>> projectInfo:', projectInfo);
+  };
+  getProjectInfo();
+
+  // 添加接口
+  const addApi = async() => {
+    const { domain, token } = await getDomainAndToken();
+    if (!domain || !token) {
+      return;
+    }
+    const apiId = await vscode.window.showInputBox({
+      title: '请输入接口 id',
+      value: '',
+      placeHolder: '请输入 yapi id, 如 "8888"',
+      validateInput(value) {
+        let error: vscode.InputBoxValidationMessage | null = null;
+        if (!value.trim()) {
+          error = {
+            message: '请输入接口 id',
+            severity: 3
+          };
+        } else if (!/^\d+$/.test(value)) {
+          error = {
+            message: '接口 id 格式不正确',
+            severity: 3
+          };
+        }
+        return error;
+      },
+    });
+    if (!apiId) {
+      return;
+    }
+    const interfaceInfo = await axios.get(`${domain}/api/interface/get`, {
+      params: {
+        token,
+        id: apiId
+      }
+    });
+    console.log('>>>> interfaceInfo:', interfaceInfo);
+  };
+
   const disposable = vscode.commands.registerCommand('bihu-code-snippets.config-yapi', async (uri: vscode.Uri) => {
     await getDomain(true);
     await getToken(true);
   });
+  const disposableForAddApi = vscode.commands.registerCommand('bihu-code-snippets.add-api', async (uri: vscode.Uri) => {
+    addApi();
+  });
 
-  context.subscriptions.push(disposable);
+  context.subscriptions.push(disposable, disposableForAddApi);
 }
 
 // 当您的扩展程序被停用时，将调用此方法

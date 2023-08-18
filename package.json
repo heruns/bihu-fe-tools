@@ -91,6 +91,10 @@
       {
         "command": "bihu-code-snippets.config-yapi",
         "title": "yapi 配置"
+      },
+      {
+        "command": "bihu-code-snippets.add-api",
+        "title": "添加 yapi 接口"
       }
     ],
     "menus": {
@@ -180,6 +184,7 @@
     "webpack-cli": "^5.0.1"
   },
   "dependencies": {
+    "axios": "^1.4.0",
     "lodash": "^4.17.21"
   }
 }
