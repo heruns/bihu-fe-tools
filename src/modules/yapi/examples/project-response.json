@@ -1,0 +1,38 @@
+{
+  "errcode": 0,
+  "errmsg": "成功！",
+  "data": {
+      "switch_notice": true,
+      "is_mock_open": false,
+      "strice": false,
+      "is_json5": true,
+      "_id": 666,
+      "name": "项目名称",
+      "basepath": "/api",
+      "project_type": "private",
+      "uid": 12,
+      "group_id": 555,
+      "icon": "code-o",
+      "color": "red",
+      "add_time": 1685503611,
+      "up_time": 1692588008,
+      "env": [
+          {
+              "header": [],
+              "global": [],
+              "_id": "6376be7baff01504445256s1",
+              "name": "local",
+              "domain": "http://127.0.0.1"
+          }
+      ],
+      "tag": [
+          {
+              "_id": "6376be7baff01504445256s1",
+              "name": "deprecated",
+              "desc": "deprecated"
+          }
+      ],
+      "cat": [],
+      "role": false
+  }
+}

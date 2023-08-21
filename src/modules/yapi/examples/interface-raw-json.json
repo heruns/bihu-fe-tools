@@ -1,0 +1,47 @@
+{
+  "errcode": 0,
+  "errmsg": "成功！",
+  "data": {
+      "query_path": {
+          "path": "/user/mobile/login",
+          "params": []
+      },
+      "edit_uid": 0,
+      "status": "done",
+      "type": "static",
+      "req_body_is_json_schema": false,
+      "res_body_is_json_schema": false,
+      "api_opened": false,
+      "index": 0,
+      "tag": [],
+      "_id": 123,
+      "req_body_type": "json",
+      "res_body_type": "json",
+      "req_body_other": "{ //SysUserSaveRequest\n    \"mobile\": \"\", //手机\n    \"verifyCode\": \"\" //验证码\n}",
+      "title": "用户登录",
+      "path": "/user/login",
+      "catid": 22,
+      "markdown": "",
+      "req_headers": [
+          {
+              "required": "1",
+              "_id": "2476ecb6aef01503345456eb",
+              "name": "Content-Type",
+              "value": "application/json",
+              "example": "application/json"
+          }
+      ],
+      "req_query": [],
+      "res_body": "{ //CommonResponse\n    \"code\": 0,\n    \"msg\": \"\",\n    \"data\": {\n        \"token\": \"\", //token\n        \"loginUser\": { //用户信息\n            \"uid\": 0, //用户id\n            \"mobile\": \"\" //手机\n        }\n    },\n    \"traceId\": \"\"\n}",
+      "method": "POST",
+      "req_body_form": [],
+      "desc": "<p></p>",
+      "project_id": 666,
+      "req_params": [],
+      "uid": 13,
+      "add_time": 1685515446,
+      "up_time": 1685515446,
+      "__v": 0,
+      "username": "XX"
+  }
+}

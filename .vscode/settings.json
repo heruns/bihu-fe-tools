@@ -12,7 +12,10 @@
     "typescript.tsc.autoDetect": "off",
     "cSpell.words": [
         "antd",
+        "basepath",
         "bihu",
+        "errcode",
+        "errmsg",
         "yapi"
     ]
 }

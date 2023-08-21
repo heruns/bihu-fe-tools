@@ -1,0 +1,47 @@
+{
+    "errcode": 0,
+    "errmsg": "成功！",
+    "data": {
+        "query_path": {
+            "path": "/user/register",
+            "params": []
+        },
+        "edit_uid": 0,
+        "status": "done",
+        "type": "static",
+        "req_body_is_json_schema": true,
+        "res_body_is_json_schema": true,
+        "api_opened": false,
+        "index": 0,
+        "tag": [],
+        "_id": 18084,
+        "req_body_type": "json",
+        "res_body_type": "json",
+        "req_body_other": "{\"type\":\"object\",\"properties\":{\"email\":{\"type\":\"string\",\"description\":\"邮箱\"},\"mobile\":{\"type\":\"string\",\"description\":\"手机\"},\"verifyCode\":{\"type\":\"string\",\"description\":\"验证码\"},\"inviteCode\":{\"type\":\"string\",\"description\":\"邀请码\"}},\"required\":[\"mobile\",\"verifyCode\"],\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"description\":\"SysUserRegisterRequest\"}",
+        "title": "用户注册",
+        "path": "/user/register",
+        "catid": 2930,
+        "markdown": "",
+        "req_headers": [
+            {
+                "required": "1",
+                "_id": "64bdead8aff0150344546374",
+                "name": "Content-Type",
+                "value": "application/json",
+                "example": "application/json"
+            }
+        ],
+        "req_query": [],
+        "res_body": "{\"type\":\"object\",\"properties\":{\"code\":{\"type\":\"integer\",\"description\":\"状态码\"},\"msg\":{\"type\":\"string\",\"description\":\"消息内容\"},\"data\":{\"type\":\"object\",\"properties\":{\"loginUser\":{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"integer\",\"description\":\"用户id\"},\"mobile\":{\"type\":\"string\",\"description\":\"手机\"},\"email\":{\"type\":\"string\",\"description\":\"邮箱\"},\"token\":{\"type\":\"string\",\"description\":\"用户token\"}},\"description\":\"响应数据\"},\"traceId\":{\"type\":\"string\",\"description\":\"链路跟踪id\"}},\"$schema\":\"http://json-schema.org/draft-04/schema#\",\"description\":\"CommonResponse\"}",
+        "method": "POST",
+        "req_body_form": [],
+        "desc": "<p></p>",
+        "project_id": 111,
+        "req_params": [],
+        "uid": 22,
+        "add_time": 1682329480,
+        "up_time": 1690168024,
+        "__v": 0,
+        "username": "xx"
+    }
+}

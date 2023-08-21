@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import axios from 'axios';
+import axiosInstance from './axios';
+import { InterfaceResponse, ProjectResponse, SuccessYapiResponse } from './yapi-response';
+import { json2ts } from '../json2ts';
 
 const domainRegexp = /^(https?:\/\/[^/?#]+)(?:[\/?#]|$)/i;
 export function getDomainFromUrl(url: string): string {
@@ -56,6 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
     config.update('bihuFeTools.yapiDomain', domain, vscode.ConfigurationTarget.Workspace); 
     return domain;
   };
+  const tokenRegexp = /^[0-9a-z]{64}$/;
   // 获取 token
   const getToken = async (isSetting = false) => {
     const config = vscode.workspace.getConfiguration();
@@ -73,6 +76,11 @@ export function activate(context: vscode.ExtensionContext) {
         if (!value.trim()) {
           error = {
             message: '请输入 yapi 项目 token',
+            severity: 3
+          };
+        } else if (!tokenRegexp.test(value)) {
+          error = {
+            message: 'token 格式不正确',
             severity: 3
           };
         }
@@ -100,20 +108,36 @@ export function activate(context: vscode.ExtensionContext) {
     return res;
   };
 
-  // 获取项目信息
-  const getProjectInfo = async() => {
+  // 获取项目的 base url
+  const getBaseURL = async() => {
     const { domain, token } = await getDomainAndToken();
     if (!domain || !token) {
       return;
     }
-    const projectInfo = await axios.get(`${domain}/api/project/get`, {
-      params: {
-        token
-      }
-    });
+    const projectInfo = await axiosInstance.get<SuccessYapiResponse<ProjectResponse>>('/api/project/get');
     console.log('>>>> projectInfo:', projectInfo);
+    return projectInfo.data.data.basepath;
   };
-  getProjectInfo();
+  const titleCase = (name: string) => name.replace(/^[a-z]/, v => v.toUpperCase());
+  const getApiMethodString = (data: InterfaceResponse, baseURL = '') => {
+    const comment = data.title;
+    const path = data.query_path.path;
+    const methodName = path.match(/([^/]+)$/)?.[1] || 'undefinedApiName';
+    let paramsVariableName = '';
+    let paramsTsDefinition = '';
+    let paramsTsDefinitionName = titleCase(`${methodName}Params`);
+    if (data.req_body_other) {
+      paramsVariableName = 'body';
+      paramsTsDefinition = data.req_body_type === 'json' && !data.req_body_is_json_schema ? json2ts(data.req_body_other) : '';
+    }
+    const method = data.method.toLowerCase();
+    return `// ${comment}
+\t${methodName}(${paramsVariableName}: ${paramsTsDefinitionName}) {
+\t\treturn api.${method}<unknown>('${baseURL}${path}', ${paramsVariableName}, {
+\t\t\tmock: true,
+\t\t})
+\t}`;
+  };
 
   // 添加接口
   const addApi = async() => {
@@ -144,13 +168,25 @@ export function activate(context: vscode.ExtensionContext) {
     if (!apiId) {
       return;
     }
-    const interfaceInfo = await axios.get(`${domain}/api/interface/get`, {
-      params: {
-        token,
-        id: apiId
-      }
+    vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification, // 进度条显示的位置
+      title: '获取 yapi 接口信息...', // 进度条标题
+      cancellable: false // 是否可取消
+    }, async(progress, token) => {
+      const [baseURL, interfaceRes] = await Promise.all([
+        getBaseURL(),
+        axiosInstance.get<SuccessYapiResponse<InterfaceResponse>>('/api/interface/get', {
+          params: {
+            id: apiId
+          }
+        })
+      ]);
+      const { data } = interfaceRes.data;
+      console.log('>>>> baseURL:', baseURL);
+      console.log('>>>> data:', data);
+      const apiMethodString = getApiMethodString(data, baseURL);
+      console.log('>>>> apiMethodString:', apiMethodString);
     });
-    console.log('>>>> interfaceInfo:', interfaceInfo);
   };
 
   const disposable = vscode.commands.registerCommand('bihu-code-snippets.config-yapi', async (uri: vscode.Uri) => {

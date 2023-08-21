@@ -141,13 +141,15 @@
         },
         "bihuFeTools.yapiDomain": {
           "type": "string",
-          "description": "yapi 域名",
-          "scope": "machine-overridable"
+          "description": "yapi 域名, 需包含协议，如 https://yapi.com",
+          "scope": "workspace",
+          "pattern": "^(https?:\/\/[^/?#]+)$"
         },
         "bihuFeTools.yapiToken": {
           "type": "string",
-          "description": "yapi 项目 token",
-          "scope": "machine-overridable"
+          "description": "yapi 项目 token, 可在 \"{yapi 域名}/project/{项目id}/setting\" 页面中复制",
+          "scope": "workspace",
+          "pattern": "^[0-9a-z]{64}$"
         }
       }
     }
