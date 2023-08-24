@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import axiosInstance from './axios';
 import { InterfaceResponse, ProjectResponse, SuccessYapiResponse } from './yapi-response';
 import { json2ts } from '../json2ts';
+import { importModule } from '../../utils';
 
 const domainRegexp = /^(https?:\/\/[^/?#]+)(?:[\/?#]|$)/i;
 export function getDomainFromUrl(url: string): string {
@@ -118,25 +119,116 @@ export function activate(context: vscode.ExtensionContext) {
     console.log('>>>> projectInfo:', projectInfo);
     return projectInfo.data.data.basepath;
   };
+
+  const indentSizeCache: Record<string, string> = {};
+  // 获取缩进
+  const getIndent = (size: number) => {
+    if (indentSizeCache[size]) {
+      return indentSizeCache[size];
+    }
+    const editor = vscode.window.activeTextEditor;
+    let tabSize = 2;
+    let insertSpaces = true;
+    if (editor) {
+      tabSize = Number(editor.options.tabSize) || 2;
+      insertSpaces = !!(editor.options.insertSpaces) || true;
+    }
+    indentSizeCache[size] = new Array(size).fill(insertSpaces ? new Array(tabSize).fill(' ').join('') : '\t').join('');
+    return indentSizeCache[size];
+  };
+
   const titleCase = (name: string) => name.replace(/^[a-z]/, v => v.toUpperCase());
+  interface GetApiMethodStringResponse {
+    /** 请求方法字符串 */
+    methodString: string;
+    /** 请求参数类型名称 */
+    paramsTsDefinitionName: string;
+    /** 请求参数类型定义 */
+    paramsTsDefinition: string;
+    /** 响应参数类型名称 */
+    responseTsDefinitionName: string;
+    /** 响应参数类型定义 */
+    responseTsDefinition: string;
+  }
+  /**
+   * 获取单个接口的请求方法字符串
+   * @param data yapi interface 接口返回的数据
+   * @param baseURL 接口的 baseURL
+   * @returns 请求方法字符串和参数等
+   */
   const getApiMethodString = (data: InterfaceResponse, baseURL = '') => {
     const comment = data.title;
     const path = data.query_path.path;
     const methodName = path.match(/([^/]+)$/)?.[1] || 'undefinedApiName';
     let paramsVariableName = '';
-    let paramsTsDefinition = '';
     let paramsTsDefinitionName = titleCase(`${methodName}Params`);
+    let paramsTsDefinition = '';
+    let responseTsDefinitionName = titleCase(`${methodName}Response`);
+    let responseTsDefinition = '';
     if (data.req_body_other) {
       paramsVariableName = 'body';
-      paramsTsDefinition = data.req_body_type === 'json' && !data.req_body_is_json_schema ? json2ts(data.req_body_other) : '';
+      let paramsJsonToParse = data.req_body_type === 'json' && !data.req_body_is_json_schema ? data.req_body_other : '';
+      paramsTsDefinition = json2ts(paramsJsonToParse);
+      // FIXME: 提取 res_body 中的 data 作为响应参数
+      let responseJsonToParse = data.res_body_type === 'json' && !data.res_body_is_json_schema ? data.res_body : '';
+      responseTsDefinition = json2ts(responseJsonToParse);
+      // createInterfaceInTypesFile(paramsTsDefinitionName, jsonToParse, typesAbsolutePath);
+      // importModule(paramsTsDefinitionName, typesRelativePath);
     }
     const method = data.method.toLowerCase();
-    return `// ${comment}
-\t${methodName}(${paramsVariableName}: ${paramsTsDefinitionName}) {
-\t\treturn api.${method}<unknown>('${baseURL}${path}', ${paramsVariableName}, {
-\t\t\tmock: true,
-\t\t})
-\t}`;
+    const methodString = `// ${comment}
+${getIndent(1)}${methodName}(${paramsVariableName}: ${paramsTsDefinitionName}) {
+${getIndent(2)}return api.${method}<${responseTsDefinitionName}>('${baseURL}${path}', ${paramsVariableName}, {
+${getIndent(3)}mock: true,
+${getIndent(2)}})
+${getIndent(1)}},`;
+    const res: GetApiMethodStringResponse = {
+      methodString,
+      paramsTsDefinitionName,
+      paramsTsDefinition,
+      responseTsDefinitionName,
+      responseTsDefinition
+    };
+    return res;
+  };
+
+  /**
+   * 获取类型文件路径
+   * @param type 路径类型，相对/绝对路径
+   * @param preserveSuffix 是否保留后缀
+   */
+  const getTypesFilePath = (type: 'relative' | 'absolute', preserveSuffix = true) => {
+    const editor = vscode.window.activeTextEditor;
+    if(!editor) {
+      return '';
+    }
+    const filePath = editor.document.fileName;
+    let fileName = path.basename(filePath);
+    if (!preserveSuffix) {
+      fileName = fileName.replace(/\.\w+$/, '');
+    }
+    const relativePath = `./types/${fileName}`;
+    if (type === 'relative') {
+      return relativePath;
+    }
+    return path.join(path.dirname(filePath), relativePath);
+  };
+  /**
+   * 在 types 文件中创建 Params 或 Response 类型
+   * @param filePath 文件路径
+   * @param name 接口名
+   * @param json 用于转换成接口类型的 json
+   * @param comment 注释
+   */
+  const createInterfaceInTypesFile = (filePath: string, name: string, interfaceDefinition: string, comment?: string) => {
+    // 检查文件是否存在
+    if (!fs.existsSync(filePath)) {
+      // 创建文件
+      fs.writeFileSync(filePath, '');
+    }
+
+    // 追加内容到文件最后一行
+    fs.appendFileSync(filePath, `\n${comment ? `/** ${comment} */\n` : ''}export interface ${name} ${interfaceDefinition}\n`);
   };
 
   // 添加接口
@@ -173,6 +265,13 @@ export function activate(context: vscode.ExtensionContext) {
       title: '获取 yapi 接口信息...', // 进度条标题
       cancellable: false // 是否可取消
     }, async(progress, token) => {
+      // 将内容插入到 vscode 中
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        return; // 如果没有活动的文本编辑器，则退出命令
+      }
+      const currentPosition = editor.selection.active;
+
       const [baseURL, interfaceRes] = await Promise.all([
         getBaseURL(),
         axiosInstance.get<SuccessYapiResponse<InterfaceResponse>>('/api/interface/get', {
@@ -182,10 +281,17 @@ export function activate(context: vscode.ExtensionContext) {
         })
       ]);
       const { data } = interfaceRes.data;
-      console.log('>>>> baseURL:', baseURL);
-      console.log('>>>> data:', data);
-      const apiMethodString = getApiMethodString(data, baseURL);
-      console.log('>>>> apiMethodString:', apiMethodString);
+      const res = getApiMethodString(data, baseURL);
+
+      const typesAbsolutePath = getTypesFilePath('absolute');
+      const typesRelativePath = getTypesFilePath('relative', false);
+      createInterfaceInTypesFile(typesAbsolutePath, res.paramsTsDefinitionName, res.paramsTsDefinition, `${data.title}-请求参数`);
+      createInterfaceInTypesFile(typesAbsolutePath, res.responseTsDefinitionName, res.responseTsDefinition, `${data.title}-响应参数`);
+      await importModule(res.paramsTsDefinitionName, typesRelativePath);
+      await importModule(res.responseTsDefinitionName, typesRelativePath);
+      await editor.edit(editBuilder => {
+        editBuilder.insert(currentPosition, res.methodString);
+      });
     });
   };
 

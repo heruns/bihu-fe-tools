@@ -4,11 +4,11 @@ import * as vscode from 'vscode';
 
 export const json2ts = (input: string) => {
   const newValue = input
-    .replace(/["'](\w+)\1:\s*/g, (searchVal, capture) => {
+    .replace(/["'](\w+)["']:\s*/g, (searchVal, capture) => {
       // key
       return `${capture}:`;
     })
-    .replace(/:\s*["'].*?\1/g, (searchVal, capture) => {
+    .replace(/:\s*["'].*?["']/g, (searchVal, capture) => {
       // 字符串值
       return ': string';
     })
