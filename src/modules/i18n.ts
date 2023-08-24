@@ -45,11 +45,16 @@ function getParamPaths(document: TextDocument, line: TextLine, firstWord: string
 function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
   try {
     let paramPaths = originParamPaths.map((path) => ({ path, stackNum: 0 }));
+    // 创建 key 匹配正则
+    const createRegexp = () => {
+      const key = paramPaths[0]?.path;
+      return key ? new RegExp(`(["'])${key}\\1:`) : null;
+    };
     if (!paramPaths.length) {
       return;
     }
     let currentLine = 1;
-    let regexp = new RegExp(`["' ]${paramPaths[0].path}\\W`);
+    let regexp = createRegexp();
     const shiftParamPaths: typeof paramPaths = [{ path: "_root", stackNum: 0 }]; // 被弹出的 param，当发现结构不符时，重新入栈
     const fileLines = fileStr.split("\n");
     let currentLineStr = fileLines[currentLine];
@@ -60,9 +65,9 @@ function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
         break;
       }
       // console.log(currentLine, currentLineStr, preParams, JSON.stringify(paramPaths));
-      if (preParams.stackNum === 0 && regexp.test(currentLineStr)) {
+      if (preParams.stackNum === 0 && regexp?.test(currentLineStr)) {
         shiftParamPaths.push(paramPaths.shift()!);
-        regexp = new RegExp(`["' ]${paramPaths[0]?.path}\\W`);
+        regexp = createRegexp();
       } else if (currentLineStr.includes("{") && !currentLineStr.includes("}")) {
         preParams.stackNum++;
       } else if (currentLineStr.includes("}") && !currentLineStr.includes("{")) {
@@ -70,7 +75,7 @@ function getParamPositionNew(fileStr: string, originParamPaths: string[]) {
         if (preParams.stackNum < 0) {
           preParams.stackNum = 0;
           paramPaths.unshift(shiftParamPaths.pop()!);
-          regexp = new RegExp(`["' ]${paramPaths[0].path}\\W`);
+          regexp = createRegexp();
         }
       }
       currentLine++;
@@ -147,15 +152,15 @@ const getRelatedJsonInfoInTsFile = (document: TextDocument, position: Position, 
     return;
   }
 
-  const regexp = /t\(['"](.+?)['"]/;
-  const regexp1 = /i18nKey=['"](.+?)['"]/;
+  const regexp = /t\((['"])(.+?)\1/;
+  const regexp1 = /i18nKey={?(['"])(.+?)\1/;
   const wordPosition = document.getWordRangeAtPosition(position, regexp) || document.getWordRangeAtPosition(position, regexp1);
   if (!wordPosition) {
     return;
   }
 
   const word = document.getText(wordPosition); // 当前光标所在单词
-  const keyPathStr = word.match(regexp)?.[1] || word.match(regexp1)?.[1];
+  const keyPathStr = word.match(regexp)?.[2] || word.match(regexp1)?.[2];
   if (!keyPathStr) {
     return;
   }
@@ -411,6 +416,8 @@ export function activate(context: ExtensionContext) {
       provideDefinition: switchJsonI18n,
     })
   );
+
+  // TODO: registerCompletionItemProvider
 
   context.subscriptions.push(
     commands.registerTextEditorCommand("bihu-code-snippets.copy-json-path", textEditor => copyJsonKeyPath(textEditor))
