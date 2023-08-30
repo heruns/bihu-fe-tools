@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { json2ts } from '../../modules/json2ts';
+import { json2ts, extractDataTextFromJson } from '../../modules/json2ts';
 
 // `"translateProgressChapterId": 0, //全局翻译时，进度id
 // "progressChapterId": 0, //全局操作时的进度id`
@@ -34,6 +34,18 @@ suite('json2ts', () => {
       /** 修改时间 */
       updatedAt: string;
     }`;
+    assert.strictEqual(json2ts(code), output);
+  });
+
+  test('直接传字符串', () => {
+    const code = `"测试"`;
+    const output = `string`;
+    assert.strictEqual(json2ts(code), output);
+  });
+
+  test('直接传数字', () => {
+    const code = `0`;
+    const output = `number`;
     assert.strictEqual(json2ts(code), output);
   });
 
@@ -94,4 +106,55 @@ suite('json2ts', () => {
   //   cardNo: string;`;
   //   assert.strictEqual(json2ts(code), output);
   // });
+});
+
+
+suite('extractDataTextFromJson', () => {
+  test('提取对象格式的 data', () => {
+    const code = `{
+      "code": 0, //状态码
+      "msg": "", //消息内容
+      "data": { //响应数据
+          "name": "run"
+      },
+      "traceId": "" //链路跟踪id
+  }`;
+    const output = `{ //响应数据
+          "name": "run"
+      }`;
+    assert.strictEqual(extractDataTextFromJson(code), output);
+  });
+
+  test('提取数字格式的 data', () => {
+    const code = `{
+      "code": 0, //状态码
+      "msg": "", //消息内容
+      "data": "text", //响应数据
+      "traceId": "" //链路跟踪id
+  }`;
+    const output = `"text"`;
+    assert.strictEqual(extractDataTextFromJson(code), output);
+  });
+
+  test('提取字符串格式的 data', () => {
+    const code = `{
+      "code": 0, //状态码
+      "msg": "", //消息内容
+      "data": 123, //响应数据
+      "traceId": "" //链路跟踪id
+  }`;
+    const output = `123`;
+    assert.strictEqual(extractDataTextFromJson(code), output);
+  });
+
+  test('提取 data 为 null 的数据', () => {
+    const code = `{
+      "code": 0, //状态码
+      "msg": "", //消息内容
+      "data": null, //响应数据
+      "traceId": "" //链路跟踪id
+  }`;
+    const output = `null`;
+    assert.strictEqual(extractDataTextFromJson(code), output);
+  });
 });

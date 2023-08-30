@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import axiosInstance from './axios';
-import { InterfaceResponse, ProjectResponse, SuccessYapiResponse } from './yapi-response';
+import { InterfaceListResponse, InterfaceResponse, ProjectResponse, SuccessYapiResponse } from './yapi-response';
 import { json2ts } from '../json2ts';
 import { importModule } from '../../utils';
 
@@ -159,7 +159,7 @@ export function activate(context: vscode.ExtensionContext) {
   const getApiMethodString = (data: InterfaceResponse, baseURL = '') => {
     const comment = data.title;
     const path = data.query_path.path;
-    const methodName = path.match(/([^/]+)$/)?.[1] || 'undefinedApiName';
+    const methodName = path.split('/').reverse().find(chunk => /^\w+$/.test(chunk)) || 'undefinedApiName';
     let paramsVariableName = '';
     let paramsTsDefinitionName = titleCase(`${methodName}Params`);
     let paramsTsDefinition = '';
@@ -169,16 +169,18 @@ export function activate(context: vscode.ExtensionContext) {
       paramsVariableName = 'body';
       let paramsJsonToParse = data.req_body_type === 'json' && !data.req_body_is_json_schema ? data.req_body_other : '';
       paramsTsDefinition = json2ts(paramsJsonToParse);
-      // FIXME: 提取 res_body 中的 data 作为响应参数
+    }
+    if (data.res_body) {
+      // 提取 res_body 中的 data 作为响应参数
       let responseJsonToParse = data.res_body_type === 'json' && !data.res_body_is_json_schema ? data.res_body : '';
-      responseTsDefinition = json2ts(responseJsonToParse);
-      // createInterfaceInTypesFile(paramsTsDefinitionName, jsonToParse, typesAbsolutePath);
-      // importModule(paramsTsDefinitionName, typesRelativePath);
+      responseTsDefinition = json2ts(responseJsonToParse, {
+        extractData: true
+      });
     }
     const method = data.method.toLowerCase();
-    const methodString = `// ${comment}
-${getIndent(1)}${methodName}(${paramsVariableName}: ${paramsTsDefinitionName}) {
-${getIndent(2)}return api.${method}<${responseTsDefinitionName}>('${baseURL}${path}', ${paramsVariableName}, {
+    const methodString = `\n  // ${comment}
+${getIndent(1)}${methodName}(${paramsVariableName ? `${paramsVariableName}: ${paramsTsDefinitionName}` : ''}) {
+${getIndent(2)}return api.${method}<${responseTsDefinitionName}>('${baseURL}${path}', ${paramsVariableName || 'null'}, {
 ${getIndent(3)}mock: true,
 ${getIndent(2)}})
 ${getIndent(1)}},`;
@@ -221,10 +223,15 @@ ${getIndent(1)}},`;
    * @param comment 注释
    */
   const createInterfaceInTypesFile = (filePath: string, name: string, interfaceDefinition: string, comment?: string) => {
+    // TODO: 根据 api 上下文将类型声明插入到对应位置
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
       // 创建文件
       fs.writeFileSync(filePath, '');
+    }
+
+    if (!interfaceDefinition) {
+      return;
     }
 
     // 追加内容到文件最后一行
@@ -232,7 +239,40 @@ ${getIndent(1)}},`;
   };
 
   // 添加接口
-  const addApi = async() => {
+  const addInterfaces = async(idList: (string | number)[]) => {
+    // 将内容插入到 vscode 中
+    const editor = vscode.window.activeTextEditor;
+    if (!editor) {
+      return; // 如果没有活动的文本编辑器，则退出命令
+    }
+    let currentPosition = editor.selection.active;
+
+    const [baseURL, ...interfaceResList] = await Promise.all([
+      getBaseURL(),
+      ...idList.map(id => {
+        return axiosInstance.get<SuccessYapiResponse<InterfaceResponse>>('/api/interface/get', {
+          params: { id }
+        });
+      })
+    ]);
+    for (const interfaceRes of interfaceResList) {
+      const { data } = interfaceRes.data;
+      const res = getApiMethodString(data, baseURL);
+
+      const typesAbsolutePath = getTypesFilePath('absolute');
+      const typesRelativePath = getTypesFilePath('relative', false);
+      res.paramsTsDefinition && createInterfaceInTypesFile(typesAbsolutePath, res.paramsTsDefinitionName, res.paramsTsDefinition, `${data.title}-请求参数`);
+      res.responseTsDefinition && createInterfaceInTypesFile(typesAbsolutePath, res.responseTsDefinitionName, res.responseTsDefinition, `${data.title}-响应参数`);
+      await importModule(res.paramsTsDefinitionName, typesRelativePath);
+      await importModule(res.responseTsDefinitionName, typesRelativePath);
+      await editor.edit(editBuilder => {
+        editBuilder.insert(currentPosition, res.methodString);
+      });
+      currentPosition = editor.selection.active;
+    }
+  };
+  // 添加接口
+  const addApiByInputId = async() => {
     const { domain, token } = await getDomainAndToken();
     if (!domain || !token) {
       return;
@@ -265,34 +305,55 @@ ${getIndent(1)}},`;
       title: '获取 yapi 接口信息...', // 进度条标题
       cancellable: false // 是否可取消
     }, async(progress, token) => {
-      // 将内容插入到 vscode 中
-      const editor = vscode.window.activeTextEditor;
-      if (!editor) {
-        return; // 如果没有活动的文本编辑器，则退出命令
-      }
-      const currentPosition = editor.selection.active;
-
-      const [baseURL, interfaceRes] = await Promise.all([
-        getBaseURL(),
-        axiosInstance.get<SuccessYapiResponse<InterfaceResponse>>('/api/interface/get', {
-          params: {
-            id: apiId
-          }
-        })
-      ]);
-      const { data } = interfaceRes.data;
-      const res = getApiMethodString(data, baseURL);
-
-      const typesAbsolutePath = getTypesFilePath('absolute');
-      const typesRelativePath = getTypesFilePath('relative', false);
-      createInterfaceInTypesFile(typesAbsolutePath, res.paramsTsDefinitionName, res.paramsTsDefinition, `${data.title}-请求参数`);
-      createInterfaceInTypesFile(typesAbsolutePath, res.responseTsDefinitionName, res.responseTsDefinition, `${data.title}-响应参数`);
-      await importModule(res.paramsTsDefinitionName, typesRelativePath);
-      await importModule(res.responseTsDefinitionName, typesRelativePath);
-      await editor.edit(editBuilder => {
-        editBuilder.insert(currentPosition, res.methodString);
-      });
+      await addInterfaces([apiId]);
     });
+  };
+  // 选择接口
+  const selectApi = async() => {
+    const { domain, token } = await getDomainAndToken();
+    if (!domain || !token) {
+      return;
+    }
+    const interfaceList = await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification, // 进度条显示的位置
+      title: '获取 yapi 接口信息...', // 进度条标题
+      cancellable: false // 是否可取消
+    }, async(progress, token) => {
+      const interfaceList = await axiosInstance.get<SuccessYapiResponse<InterfaceListResponse>>('/api/interface/list', {
+        params: {
+          page: 1,
+          limit: 999
+        }
+      });
+      return interfaceList;
+    });
+    
+    interface QuickPickItem extends vscode.QuickPickItem {
+      id: number;
+    }
+    const pickList: QuickPickItem[] = interfaceList.data.data.list.map(item => {
+      return {
+        id: item._id,
+        label: `${item.method}:${item.path}`,
+        description: `${item.title}(${item._id})`
+      };
+    });
+    const res = await vscode.window.showQuickPick(pickList, {
+      title: '请选择需要导入的接口',
+      canPickMany: true,
+      ignoreFocusOut: true,
+      matchOnDescription: true
+    });
+    console.log('>>>> res:', res);
+    if (res?.length) {
+      vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification, // 进度条显示的位置
+        title: '获取 yapi 接口信息...', // 进度条标题
+        cancellable: false // 是否可取消
+      }, async(progress, token) => {
+        await addInterfaces(res.map(item => item.id));
+      });
+    }
   };
 
   const disposable = vscode.commands.registerCommand('bihu-code-snippets.config-yapi', async (uri: vscode.Uri) => {
@@ -300,7 +361,8 @@ ${getIndent(1)}},`;
     await getToken(true);
   });
   const disposableForAddApi = vscode.commands.registerCommand('bihu-code-snippets.add-api', async (uri: vscode.Uri) => {
-    addApi();
+    selectApi();
+    // vscode.window.showQuickPick(Array.from({ length: 20 }, (v, i) => `选项 ${i + 1}`));
   });
 
   context.subscriptions.push(disposable, disposableForAddApi);

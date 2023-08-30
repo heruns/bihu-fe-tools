@@ -2,7 +2,71 @@
 // 导入该模块并使用别名 vscode 引用它以在下面的代码中使用
 import * as vscode from 'vscode';
 
-export const json2ts = (input: string) => {
+/**
+ * 从 json 字符串中提取出 data 这个字段对应的字符串
+ * @param json json 字符串
+ */
+export const extractDataTextFromJson = (json: string) => {
+  let lines: string[] = [];
+  // data 数据是否已开始
+  let isDataStart = false;
+  // 是否已结束
+  let isEnd = false;
+  let currentLine = 0;
+  let regexp = /^\s*"data":\s*(.+)/;
+  let traceIdRegexp = /^\s*"traceId":\s*(.+)/;
+  const fileLines = json.split("\n");
+  let currentLineStr = fileLines[currentLine];
+  while (!isEnd && currentLine < fileLines.length) {
+    currentLineStr = fileLines[currentLine];
+    // console.log(currentLine, currentLineStr, preParams, JSON.stringify(paramPaths));
+    if (!isDataStart && regexp.test(currentLineStr)) {
+      const result = currentLineStr.match(regexp);
+      lines.push(result?.[1]!);
+      isDataStart = true;
+    } else if (isDataStart && traceIdRegexp.test(currentLineStr)) {
+      // 已匹配到 traceId，表示 data 已结束
+      const lastLine = lines.pop();
+      if (lastLine) {
+        // 移除结尾的逗号
+        lines.push(lastLine.replace(/,\s*(\/\/.*)?$/, ''));
+      }
+      isDataStart = false;
+      isEnd = true;
+    } else if (isDataStart) {
+      lines.push(currentLineStr);
+    }
+    currentLine++;
+  }
+  return lines.join('\n');
+};
+
+interface JSON2tsFormat {
+  type: 'indent' | 'space';
+  indentSize?: number;
+}
+interface JSON2tsOptions {
+  /** 是否提取 data 字符串返回，只对 yapi 接口响应生效 */
+  extractData?: boolean;
+  /** TODO: 是否格式化 */
+  format?: boolean | JSON2tsFormat;
+}
+
+// 将 json 或包含部分 json 的 TS 接口转成 TS 接口声明
+// TODO: 返回结构化数据，而非只是字符串，用于解决直接传入字符串或数字等类型，或数组等情况
+export const json2ts = (input: string, options?: JSON2tsOptions) => {
+  if (options?.extractData) {
+    input = extractDataTextFromJson(input);
+  }
+  if (/^\s*["'].*?["']$/.test(input)) {
+    // 直接传入字符串值
+    return 'string';
+  } else if (/^\s*[\d.]+$/.test(input)) {
+    // 直接传入数字值
+    return 'number';
+  } else if (/^\s*null$/.test(input)) {
+    return 'null';
+  }
   const newValue = input
     .replace(/["'](\w+)["']:\s*/g, (searchVal, capture) => {
       // key
@@ -23,13 +87,22 @@ export const json2ts = (input: string) => {
         }
       }
       return ': number';
+    })
+    .replace(/:\s*\{\}/g, () => {
+      // 字符串值
+      return ': unknown';
     });
   // 行数组
   const lines = newValue.split(/[\n\r]+/);
   const linesCopy = [...lines];
   for (const line of lines) {
     const index = linesCopy.indexOf(line);
-    const formatContent = (lineContent: string) => lineContent.replace(/[,;]?\s*$/, ';');
+    const formatContent = (lineContent: string) => {
+      return lineContent
+        .replace(/\s+$/, '') // 移除结尾空格
+        .replace(/:(?!\s)/, ': ') // 冒号(:)后面加空格
+        .replace(/(?<![{[])[,;]?\s*$/, ';'); // 除了以 "{" 和 "[" 结尾的情况，结尾添加 ";"
+    };
     const commentMatched = line.match(/^(\s+)(.+:.+)(\/\/(.+))/);
     if (commentMatched?.[4]) {
       // 匹配到带注释的内容行，如 `    "paymentMethod": 1, // 支付方式，1-POS、2-Cash`

@@ -40,4 +40,19 @@ export interface ProjectResponse {
   name: string;
   basepath: string;
 }
+
+export interface InterfaceListResponseItem {
+  _id: number;
+  title: string;
+  path: string;
+  catid: number;
+  method: string;
+  project_id: number;
+  add_time: number;
+}
+export type InterfaceListResponse = {
+  count: number;
+  total: number;
+  list: InterfaceListResponseItem[];
+};
 /* eslint-enable @typescript-eslint/naming-convention */ 
