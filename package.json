@@ -2,7 +2,7 @@
   "name": "bihu-code-snippets",
   "displayName": "Bihu FE Tools",
   "description": "Code Snippets and useful tools for bihu FE team in JS/TS/SCSS.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "publisher": "bihu",
   "icon": "images/logo.png",
   "engines": {
@@ -55,6 +55,10 @@
       {
         "command": "bihu-code-snippets.addPx2vw",
         "title": "为 px 值添加 px2vw() 调用"
+      },
+      {
+        "command": "bihu-code-snippets.removePx2vw",
+        "title": "移除 px2vw() 调用"
       },
       {
         "command": "bihu-code-snippets.reactUseState",

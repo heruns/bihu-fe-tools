@@ -9,11 +9,7 @@ import * as vscode from 'vscode';
 export function activate(context: vscode.ExtensionContext) {
   console.log('px2vw 模块加载成功');
 
-  // 命令已在 package.json 文件中定义
-  // 现在使用 registerCommand 提供命令的实现
-  // commandId 参数必须与 package.json 中的 command 字段匹配
-  // 为选中代码中的所有 px 值添加 px2vw() 调用
-  const disposable = vscode.commands.registerCommand('bihu-code-snippets.addPx2vw', () => {
+  const replaceSelection = (searchValue: RegExp, replaceValue: string) => {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       return; // 如果没有活动的文本编辑器，则退出命令
@@ -25,12 +21,25 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     const text = editor.document.getText(selection); // 获取选定文本的内容
-    // 匹配 "数字px"，但是不匹配已经在 px2vw() 中的数字值
-    const convertedText = text.replace(/(?<!px2vw\()((?:\d+)?\.?\d+)px(?!\))/g, 'px2vw($1px)');
+    const convertedText = text.replace(searchValue, replaceValue);
 
     editor.edit(editBuilder => {
       editBuilder.replace(selection, convertedText);
     });
+  };
+
+  // 命令已在 package.json 文件中定义
+  // 现在使用 registerCommand 提供命令的实现
+  // commandId 参数必须与 package.json 中的 command 字段匹配
+  // 为选中代码中的所有 px 值添加 px2vw() 调用
+  const disposable = vscode.commands.registerCommand('bihu-code-snippets.addPx2vw', () => {
+    // 匹配 "数字px"，但是不匹配已经在 px2vw() 中的数字值
+    replaceSelection(/(?<!px2vw\()((?:\d+)?\.?\d+)px(?!\))/g, 'px2vw($1px)');
+  });
+  // 为选中代码中的所有 px 值移除 px2vw() 调用
+  const disposableFprRemove = vscode.commands.registerCommand('bihu-code-snippets.removePx2vw', () => {
+    // 匹配 px2vw() 中的值
+    replaceSelection(/px2vw\(([^\)]+)\)/g, '$1');
   });
 
   // 判断一个位置是否在 mobile 选择器中
@@ -133,7 +142,7 @@ export function activate(context: vscode.ExtensionContext) {
     },
     ...'.0123456789px'.split('')
   );
-  context.subscriptions.push(disposable, completionProvider);
+  context.subscriptions.push(disposable, disposableFprRemove, completionProvider);
 
   // 输入 px2vw 时，出现 px2vw() 的代码补全提示，回车自动填入，并且通过 focusPx2vw 命令将光标移动到括号中
   const emptyPx2vwCompletionProvider = vscode.languages.registerCompletionItemProvider(
