@@ -18,6 +18,12 @@ import {
   Hover,
 } from "vscode";
 
+// TODO: 将所有数据保存在内存中，监听文件变动刷新，以提高效率和提供智能提示
+// TODO: 智能提示
+// TODO: 没有点的情况，比如 t('useBtn')，无法点击跳转
+// TODO: 快捷键
+// TODO: 在json中点击时跳转到其他json和引用的地方
+
 // 获取当前参数的全层级路径，
 function getParamPaths(document: TextDocument, line: TextLine, firstWord: string) {
   let stackNum = 0;

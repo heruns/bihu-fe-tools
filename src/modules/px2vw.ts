@@ -2,7 +2,8 @@
 // 导入该模块并使用别名 vscode 引用它以在下面的代码中使用
 import * as vscode from 'vscode';
 
-// FIXME: 负数处理
+// TODO: 一键处理 :global(.mobile) 中的所有 px
+// TODO: 忽略 border: 1px
 
 // 当您的扩展程序被激活时，将调用此方法
 // 您的扩展程序在第一次执行命令时被激活
@@ -34,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 为选中代码中的所有 px 值添加 px2vw() 调用
   const disposable = vscode.commands.registerCommand('bihu-code-snippets.addPx2vw', () => {
     // 匹配 "数字px"，但是不匹配已经在 px2vw() 中的数字值
-    replaceSelection(/(?<!px2vw\()((?:\d+)?\.?\d+)px(?!\))/g, 'px2vw($1px)');
+    replaceSelection(/(?<!px2vw\()(-?(?:\d+)?\.?\d+)px(?!\))/g, 'px2vw($1px)');
   });
   // 为选中代码中的所有 px 值移除 px2vw() 调用
   const disposableFprRemove = vscode.commands.registerCommand('bihu-code-snippets.removePx2vw', () => {

@@ -132,7 +132,7 @@ export function activate(context: vscode.ExtensionContext) {
     }
 
     // 定义 Snippet 内容
-    const snippetContent = new vscode.SnippetString('useEffect(() => {\n\t${1:}\n}, [${2:}])');
+    const snippetContent = new vscode.SnippetString('useEffect(() => {\n\t${2:}\n}, [${1:}])');
 
     // 插入 Snippet
     editor.insertSnippet(snippetContent).then(() => {
