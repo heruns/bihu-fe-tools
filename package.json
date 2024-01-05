@@ -2,7 +2,7 @@
   "name": "bihu-code-snippets",
   "displayName": "Bihu FE Tools",
   "description": "Code Snippets and useful tools for bihu FE team in JS/TS/SCSS.",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "publisher": "bihu",
   "icon": "images/logo.png",
   "engines": {

@@ -37,6 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
       title: '请输入 yapi 域名',
       value: yapiDomainInSetting || '',
       placeHolder: '请输入 yapi 域名，需包含协议，如 https://yapi.com',
+      ignoreFocusOut: true,
       validateInput(value) {
         let error: vscode.InputBoxValidationMessage | null = null;
         if (!value.trim()) {
@@ -72,6 +73,7 @@ export function activate(context: vscode.ExtensionContext) {
       title: '请输入 yapi 项目 token',
       value: yapiTokenInSetting || '',
       placeHolder: `请输入 yapi 项目 token，可在 "${domain || '{yapi 域名}'}/project/{项目id}/setting" 页面中复制`,
+      ignoreFocusOut: true,
       validateInput(value) {
         let error: vscode.InputBoxValidationMessage | null = null;
         if (!value.trim()) {
