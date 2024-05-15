@@ -12,6 +12,7 @@
   ![px2vw-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/px2vw-intellisense.gif)
 - i18n 文件跳转
   - 基于 [Momo707577045/i18n-jump](https://github.com/Momo707577045/i18n-jump/tree/main) 修改，适用于 react-i18next 项目，推荐的目录结构如下：
+
     ```
     your-project
     ├── src
@@ -24,6 +25,7 @@
     │              └── zh.json
     └── others
     ```
+
   - 添加复制 json key 路径功能
   - 添加鼠标悬停提示功能
 - 组件重命名
@@ -44,6 +46,16 @@
 - SCSS 代码片段
   - 快捷输入 `:global`: `:global -bh`
   - 快捷输入 `:global(.mobile)`: `:global(.mobile) -bh`
+- 新建页面/组件
+  - 当前版本依赖项目创建组件脚本`"create": "node ./scripts/create-template.js"`与项目组件模板 `/templates/function-component`
+  - 右键点击所选文件，输入组件名称，即可快速生成页面或组件，省去了原先需要输入 npm run create ... 的步骤。
+  - 示例如下：
+  1.右键点击所选文件，选择 `新建页面/组件`，输入组件的名称中、英文
+      ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-zh-en.gif)
+  2.只输入中文，翻译对应的英文
+      ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-zh.gif)
+  3.只输入英文，翻译对应的中文
+      ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-en.gif)
 
 # Bihu Frontend Team Tools
 
@@ -73,3 +85,13 @@ This plugin is mainly related to JS/TS/React/SCSS and includes the following fea
 - SCSS code snippets
   - Shortcut for inputting `:global`: `:global -bh`
   - Shortcut for inputting `:global(.mobile)`: `:global(.mobile) -bh`
+- Create New Page/Component
+  - The current version relies on the project creation script `"create": "node ./scripts/create-template.js"` and the project component template `/templates/function-component`.
+  - Right-click the selected file, enter the component name, and quickly generate a page or component, eliminating the need to manually input `npm run create ...`.
+  - Examples are as follows:
+  1.Right-click the selected file, choose `Create New Page/Component`, and enter the component name in Chinese and English.
+      ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-zh-en.gif)
+  2.Enter only Chinese, and the corresponding English will be translated.
+      ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-zh.gif)
+  3.Enter only English, and the corresponding Chinese will be translated.
+      ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-en.gif)
