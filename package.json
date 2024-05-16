@@ -2,7 +2,7 @@
   "name": "bihu-code-snippets",
   "displayName": "Bihu FE Tools",
   "description": "Code Snippets and useful tools for bihu FE team in JS/TS/SCSS.",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "publisher": "bihu",
   "icon": "images/logo.png",
   "engines": {
@@ -91,6 +91,10 @@
       {
         "command": "bihu-code-snippets.jump-git",
         "title": "跳转到 Git 仓库"
+      },
+      {
+        "command": "bihu-code-snippets.createComponent",
+        "title": "新建页面/组件"
       }
     ],
     "menus": {
@@ -103,6 +107,10 @@
           "command": "bihu-code-snippets.jump-git",
           "group": "navigation",
           "when": "config.bihuFeTools.showJumpGit"
+        },
+        {
+          "command": "bihu-code-snippets.createComponent",
+          "group": "7_modification@99"
         }
       ],
       "editor/context": [
@@ -160,7 +168,7 @@
     "@types/vscode": "^1.76.0",
     "@typescript-eslint/eslint-plugin": "^5.53.0",
     "@typescript-eslint/parser": "^5.53.0",
-    "@vscode/test-electron": "^2.2.3",
+    "@vscode/test-electron": "^2.3.9",
     "eslint": "^8.34.0",
     "glob": "^8.1.0",
     "mocha": "^10.2.0",
