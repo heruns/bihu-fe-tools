@@ -47,8 +47,7 @@
   - 快捷输入 `:global`: `:global -bh`
   - 快捷输入 `:global(.mobile)`: `:global(.mobile) -bh`
 - 新建页面/组件
-  - 当前版本依赖项目创建组件脚本`"create": "node ./scripts/create-template.js"`与项目组件模板 `/templates/function-component`
-  - 右键点击所选文件，输入组件名称，即可快速生成页面或组件，省去了原先需要输入 npm run create ... 的步骤。
+  - 右键点击所选文件，输入组件名称，即可快速生成页面或组件，插件会优先读取项目中的`src/templates/function-component`组件模板来创建新的组件。
   - 示例如下：
   1.右键点击所选文件，选择 `新建页面/组件`，输入组件的名称中、英文
       ![create-new-component-intellisense](https://raw.githubusercontent.com/heruns/bihu-fe-tools/main/demo/create-component-zh-en.gif)

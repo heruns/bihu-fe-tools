@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2024-05-18
+
+### Added
+
+- "新建页面/组件" 功能添加了备用的创建组件脚本与组件模板。系统会优先使用项目中的 `src/templates/function-component` 组件模板来创建新的组件。
+
 ## [0.4.4] - 2024-05-06
 
 ### Added
