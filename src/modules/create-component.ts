@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as https from 'https';
 import { MD5 } from '../assets/js/md5';
 import { exec, execSync } from 'child_process';
-
+import { createComponent } from '../scripts/create-template';
 /**
  * 使用百度翻译API异步翻译文本。
  * @param query 要翻译的文本。
@@ -279,40 +279,39 @@ const checkTemplateExists = (templatePath: string): boolean => {
 /**
  * 在项目中创建组件，如果项目中没有相应的创建命令则使用备用脚本和模板。
  * @param componentPath 组件的路径。
+//  * @param enName 组件的英文名称。
  * @param zhName 组件的中文名称。
  * @param projectRoot 项目的根目录。
  * @returns 完成创建操作的Promise。
  */
-const createComponentWithFallback = (componentPath: string, zhName: string, projectRoot: string): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
+const createComponentWithFallback = (componentPath: string, zhName: string, projectRoot: string,): Promise<void> => {
+  return new Promise<void>(async (resolve, reject) => {
     const originalDir = process.cwd();  // 保存当前目录
-    const fallbackScriptPath = path.join(__dirname, '..', 'src', 'scripts', 'create-template.js'); // 备用创建组件脚本
-    const fallbackTemplatePath = path.join(__dirname, '..', 'src', 'templates', 'function-component'); // 备用模板组件
 
-    // npm命令
-    let command;
     // 检查是否有 npm 命令和模板文件
     if (!checkNpmScriptExists(projectRoot, 'create') || !checkTemplateExists(path.join(projectRoot, 'templates', 'function-component'))) {
-      // 使用备用脚本和模板
-      process.chdir(path.dirname(fallbackScriptPath));  // 切换到脚本所在目录
-      command = `node "${fallbackScriptPath}" "${componentPath}" "${zhName}"`;
+      process.chdir(projectRoot);
+      // 使用备用组件模板生成
+      await createComponent(componentPath, zhName,);
+      resolve();
     } else {
       // 使用项目中的 npm 命令和模板
       process.chdir(projectRoot);
-      command = `npm run create ${componentPath} ${zhName}`;
-    }
+      // npm命令
+      const command = `npm run create ${componentPath} ${zhName}`;
 
-    // 执行 npm命令
-    exec(command, (error, stdout, stderr) => {
-      process.chdir(originalDir);  // 操作后恢复目录
-      if (error) {
-        vscode.window.showErrorMessage(`创建组件失败: ${error.message}`);
-        reject(new Error(`创建组件失败: ${error.message}`));
-        return;
-      }
-      // vscode.window.showInformationMessage('组件创建成功');
-      resolve();
-    });
+      // 执行 npm命令
+      exec(command, (error, stdout, stderr) => {
+        process.chdir(originalDir);  // 操作后恢复目录
+        if (error) {
+          vscode.window.showErrorMessage(`创建组件失败: ${error.message}`);
+          reject(new Error(`创建组件失败: ${error.message}`));
+          return;
+        }
+        // vscode.window.showInformationMessage('组件创建成功');
+        resolve();
+      });
+    }
   });
 };
 
